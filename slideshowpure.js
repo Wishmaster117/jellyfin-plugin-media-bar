@@ -3784,7 +3784,6 @@ const SlideshowManager = {
         }
       }, CONFIG.shuffleInterval);
       STATE.slideshow.slideInterval.stop();
-      STATE.slideshow.slideInterval = null; // Ensure that updateCurrentSlide doesn't restart the timer
 
       await this.updateCurrentSlide(STATE.slideshow.resumeIndex || 0);
     } catch (error) {
