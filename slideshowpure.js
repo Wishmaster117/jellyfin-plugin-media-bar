@@ -2998,10 +2998,82 @@ const SlideshowManager = {
     });
   },
 
+  ensureJmpProgressChrome(slide) {
+    if (!isJellyfinMediaPlayer() || !slide) return null;
+
+    const container = document.getElementById("slides-container");
+    const sourceRail = slide.querySelector(".spec-rail");
+    if (!container || !sourceRail) return null;
+
+    let rail = container.querySelector(".jmp-spec-rail");
+    let bar = rail?.querySelector(".jmp-spec-progress");
+
+    if (!rail) {
+      rail = document.createElement("div");
+      rail.className = "jmp-spec-rail";
+
+      bar = document.createElement("span");
+      bar.className = "jmp-spec-progress";
+
+      rail.appendChild(bar);
+      container.appendChild(rail);
+
+      Object.assign(rail.style, {
+        position: "absolute",
+        overflow: "hidden",
+        pointerEvents: "none",
+        zIndex: "6",
+      });
+
+      Object.assign(bar.style, {
+        position: "absolute",
+        left: "0",
+        top: "0",
+        bottom: "0",
+        width: "0",
+        background: "#fff",
+      });
+    }
+
+    this.positionJmpProgressChrome(slide, container);
+
+    if (!this.jmpProgressResizeAttached) {
+      this.jmpProgressResizeAttached = true;
+      window.addEventListener(
+        "resize",
+        () => this.repositionChrome(),
+        { passive: true },
+      );
+    }
+
+    return bar;
+  },
+
+  positionJmpProgressChrome(slide, container) {
+    if (!isJellyfinMediaPlayer() || !slide || !container) return;
+
+    const sourceRail = slide.querySelector(".spec-rail");
+    const rail = container.querySelector(".jmp-spec-rail");
+    if (!sourceRail || !rail) return;
+
+    const sourceRect = sourceRail.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+    const sourceStyle = getComputedStyle(sourceRail);
+
+    rail.style.left = `${sourceRect.left - containerRect.left}px`;
+    rail.style.top = `${sourceRect.top - containerRect.top - 4}px`;
+    rail.style.width = `${sourceRect.width}px`;
+    rail.style.height = `${Math.max(2, sourceRect.height)}px`;
+    rail.style.backgroundColor = sourceStyle.backgroundColor;
+  },
+
   restartProgress(slide) {
     if (!isMarqueeLayout()) return;
 
-    const bar = slide?.querySelector(".spec-progress");
+    const bar = isJellyfinMediaPlayer()
+      ? this.ensureJmpProgressChrome(slide)
+      : slide?.querySelector(".spec-progress");
+
     if (!bar) return;
 
     bar.style.transition = "none";
@@ -3022,7 +3094,11 @@ const SlideshowManager = {
   setProgressRunning(running) {
     if (!isMarqueeLayout()) return;
 
-    const bar = document.querySelector(".slide.active .spec-progress");
+    const activeSlide = document.querySelector(".slide.active");
+    const bar = isJellyfinMediaPlayer()
+      ? this.ensureJmpProgressChrome(activeSlide)
+      : activeSlide?.querySelector(".spec-progress");
+
     if (!bar) return;
 
     if (!running) {
@@ -3052,7 +3128,11 @@ const SlideshowManager = {
     const slide =
       container.querySelector(".slide.active") ||
       container.querySelector(".slide");
-    if (slide) this.positionDots(slide, container);
+
+    if (slide) {
+      this.positionDots(slide, container);
+      this.positionJmpProgressChrome(slide, container);
+    }
   },
 
   watchContentHeight(container) {
@@ -4357,6 +4437,9 @@ const isTouchLayout = () =>
 const isPlateLayout = () => CONFIG.layout === "plate";
 
 const isMarqueeLayout = () => CONFIG.layout === "marquee";
+
+const isJellyfinMediaPlayer = () =>
+  /\bJellyfinMediaPlayer\b/.test(navigator.userAgent || "");
 
 const slidesInit = async () => {
   if (STATE.slideshow.hasInitialized) {
