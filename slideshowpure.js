@@ -3664,6 +3664,8 @@ const SlideshowManager = {
     trailerContainer?.classList.toggle("active", on);
     slide?.querySelector(".backdrop")?.classList.toggle("with-video", on);
     slide?.querySelector(".plot-container")?.classList.toggle("with-video", on);
+
+    if (on) applyJmpTrailerGeometry(itemId, trailerContainer);
   },
 
   onTrailerPlaying(itemId, trailerContainer) {
@@ -4357,6 +4359,119 @@ const isTouchLayout = () =>
 const isPlateLayout = () => CONFIG.layout === "plate";
 
 const isMarqueeLayout = () => CONFIG.layout === "marquee";
+
+const isJellyfinMediaPlayer = () =>
+  /\bJellyfinMediaPlayer\b/.test(navigator.userAgent || "");
+
+let jmpTrailerResizeAttached = false;
+
+const applyJmpTrailerGeometry = (itemId, trailerContainer = null) => {
+  if (!isJellyfinMediaPlayer()) return;
+
+  const stage = document.getElementById("slides-container");
+  const slide = document.querySelector(`.slide[data-item-id="${itemId}"]`);
+  const container =
+    trailerContainer || slide?.querySelector(".video-container");
+
+  if (!stage || !slide || !container) return;
+
+  const iframe = container.querySelector("iframe");
+  const localVideo = container.querySelector(".local-trailer");
+  const host = container.querySelector(".video-player");
+
+  let playerElement = null;
+  let nestedMedia = null;
+
+  if (iframe) {
+    const wrapper =
+      iframe.parentElement?.classList?.contains("video-player")
+        ? iframe.parentElement
+        : null;
+
+    playerElement = wrapper || iframe;
+    if (wrapper) nestedMedia = iframe;
+  } else if (host) {
+    playerElement = host;
+    if (localVideo && localVideo !== host) nestedMedia = localVideo;
+  } else if (localVideo) {
+    playerElement = localVideo;
+  }
+
+  if (!playerElement) return;
+
+  const stageRect = stage.getBoundingClientRect();
+  const stageWidth = stageRect.width || stage.clientWidth;
+  const stageHeight = stageRect.height || stage.clientHeight;
+
+  if (stageWidth <= 0 || stageHeight <= 0) return;
+
+  const aspect = 16 / 9;
+  let playerWidth;
+  let playerHeight;
+
+  if (stageWidth / stageHeight > aspect) {
+    playerWidth = stageWidth;
+    playerHeight = stageWidth / aspect;
+  } else {
+    playerHeight = stageHeight;
+    playerWidth = stageHeight * aspect;
+  }
+
+  const important = (element, property, value) =>
+    element.style.setProperty(property, value, "important");
+
+  important(container, "position", "absolute");
+  important(container, "top", "0");
+  important(container, "right", "0");
+  important(container, "bottom", "0");
+  important(container, "left", "0");
+  important(container, "width", "100%");
+  important(container, "height", "100%");
+  important(container, "container-type", "normal");
+  important(container, "overflow", "hidden");
+
+  // Older QtWebEngine builds fail to composite the masked video layer.
+  important(container, "mask-image", "none");
+  important(container, "-webkit-mask-image", "none");
+  important(container, "z-index", "2");
+
+  important(playerElement, "position", "absolute");
+  important(playerElement, "left", "50%");
+  important(playerElement, "top", "50%");
+  important(playerElement, "width", `${playerWidth}px`);
+  important(playerElement, "height", `${playerHeight}px`);
+  important(playerElement, "min-width", "0");
+  important(playerElement, "min-height", "0");
+  important(playerElement, "transform", "translate(-50%, -50%)");
+  important(playerElement, "display", "block");
+  important(playerElement, "visibility", "visible");
+  important(playerElement, "opacity", "1");
+
+  if (nestedMedia) {
+    important(nestedMedia, "position", "absolute");
+    important(nestedMedia, "left", "0");
+    important(nestedMedia, "top", "0");
+    important(nestedMedia, "width", "100%");
+    important(nestedMedia, "height", "100%");
+    important(nestedMedia, "display", "block");
+    important(nestedMedia, "visibility", "visible");
+    important(nestedMedia, "opacity", "1");
+  }
+
+  if (!jmpTrailerResizeAttached) {
+    jmpTrailerResizeAttached = true;
+    window.addEventListener(
+      "resize",
+      () => {
+        if (!STATE.slideshow.isVideoPlaying) return;
+        const activeItemId =
+          STATE.slideshow.itemIds[STATE.slideshow.currentSlideIndex];
+        if (activeItemId) applyJmpTrailerGeometry(activeItemId);
+      },
+      { passive: true },
+    );
+  }
+};
 
 const slidesInit = async () => {
   if (STATE.slideshow.hasInitialized) {
