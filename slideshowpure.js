@@ -992,6 +992,9 @@ const isDataSaverOn = () => {
   }
 };
 
+const isJmpClient = () =>
+  /\bJellyfinMediaPlayer\b/.test(navigator.userAgent || "");
+
 const LIST_FILTER_PARAMS = {
   genre: "Genres",
   tag: "Tags",
@@ -3328,6 +3331,21 @@ const SlideshowManager = {
       slide.querySelector(".backdrop")?.classList.remove("with-video");
       slide.querySelector(".plot-container")?.classList.remove("with-video");
     });
+
+    if (!isJmpClient()) {
+      document
+        .querySelectorAll("#slides-container .backdrop")
+        .forEach((backdrop) => {
+          backdrop.style.opacity = "";
+        });
+
+      document
+        .querySelectorAll("#slides-container .video-container")
+        .forEach((trailerContainer) => {
+          trailerContainer.style.removeProperty("mask-image");
+          trailerContainer.style.removeProperty("-webkit-mask-image");
+        });
+    }
   },
 
   async preloadAdjacentSlides(currentIndex) {
@@ -3661,9 +3679,33 @@ const SlideshowManager = {
 
   setTrailerVisible(itemId, trailerContainer, on) {
     const slide = document.querySelector(`.slide[data-item-id="${itemId}"]`);
+    const backdrop = slide?.querySelector(".backdrop");
+
     trailerContainer?.classList.toggle("active", on);
-    slide?.querySelector(".backdrop")?.classList.toggle("with-video", on);
+    backdrop?.classList.toggle("with-video", on);
     slide?.querySelector(".plot-container")?.classList.toggle("with-video", on);
+
+    if (!isJmpClient()) {
+      if (backdrop) {
+        backdrop.style.opacity = on ? "0" : "";
+      }
+
+      if (trailerContainer) {
+        if (on) {
+          trailerContainer.style.setProperty(
+            "mask-image",
+            "var(--slideshow-bottom-fade)",
+          );
+          trailerContainer.style.setProperty(
+            "-webkit-mask-image",
+            "var(--slideshow-bottom-fade)",
+          );
+        } else {
+          trailerContainer.style.removeProperty("mask-image");
+          trailerContainer.style.removeProperty("-webkit-mask-image");
+        }
+      }
+    }
   },
 
   onTrailerPlaying(itemId, trailerContainer) {
@@ -3721,10 +3763,7 @@ const SlideshowManager = {
     STATE.slideshow.trailerWatchdog = null;
     STATE.slideshow.isVideoPlaying = false;
 
-    const slide = document.querySelector(`.slide[data-item-id="${itemId}"]`);
-    trailerContainer?.classList.remove("active");
-    slide?.querySelector(".backdrop")?.classList.remove("with-video");
-    slide?.querySelector(".plot-container")?.classList.remove("with-video");
+    this.setTrailerVisible(itemId, trailerContainer, false);
 
     STATE.slideshow.slideVideoIds[itemId] = null;
 
