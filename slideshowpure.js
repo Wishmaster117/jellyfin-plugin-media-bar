@@ -732,10 +732,12 @@ const resetSlideshowState = () => {
 
   PageBackdrop.clear();
 
-  const container = document.getElementById("slides-container");
+  const container =
+    document.getElementById("slides-container") || SlideUtils.slidesContainer;
   if (container) {
     container.remove();
   }
+  SlideUtils.slidesContainer = null;
 
   STATE.slideshow.hasInitialized = false;
   STATE.slideshow.isTransitioning = false;
@@ -866,6 +868,7 @@ const watchForSignOut = () => {
 bootstrap();
 
 const SlideUtils = {
+  slidesContainer: null,
 
   shuffleArray(array) {
     const newArray = [...array];
@@ -950,9 +953,30 @@ const SlideUtils = {
   },
 
   getOrCreateSlidesContainer() {
-    let container = document.getElementById("slides-container");
+    let container =
+      document.getElementById("slides-container") || this.slidesContainer;
+
     if (!container) {
       container = this.createElement("div", { id: "slides-container" });
+    }
+
+    this.slidesContainer = container;
+
+    const reactRoot = document.getElementById("reactRoot");
+    const homeTab = document.getElementById("homeTab");
+    const isJellyfin12Shell = Boolean(
+      reactRoot &&
+        reactRoot.getBoundingClientRect().height >=
+          Math.min(window.innerHeight * 0.5, 320),
+    );
+
+    if (
+      isJellyfin12Shell &&
+      homeTab &&
+      container.parentElement !== homeTab
+    ) {
+      homeTab.prepend(container);
+    } else if (!container.parentElement) {
       document.body.appendChild(container);
     }
 
@@ -1294,47 +1318,76 @@ const LocalizationUtils = {
 
         const chunkText = await response.text();
 
-        const replaceEscaped = (text) =>
-          text
-            .replace(/\\"/g, '"')
-            .replace(/\\n/g, "\n")
-            .replace(/\\\\/g, "\\")
-            .replace(/\\'/g, "'");
-        try {
-          const START = /^(.*)JSON\.parse\(['"]/gms;
-          const END = /['"]?\)?\s*}?(\r\n|\r|\n)?}?]?\)?;(\r\n|\r|\n)?$/gms;
+        // The chunk wraps the catalogue in JSON.parse('<js string literal>').
+        // Extract the JavaScript string literal without treating escaped quotes
+        // as terminators, then decode its escapes exactly once before JSON.parse.
+        const marker = "JSON.parse(";
+        const markerIndex = chunkText.indexOf(marker);
 
-          const jsonString = replaceEscaped(
-            chunkText.replace(START, "").replace(END, ""),
+        if (markerIndex === -1) {
+          throw new Error("Translation chunk has no JSON.parse() payload");
+        }
+
+        let cursor = markerIndex + marker.length;
+        while (/\s/.test(chunkText[cursor] || "")) cursor += 1;
+
+        const quote = chunkText[cursor];
+        if (quote !== '"' && quote !== "'") {
+          throw new Error(
+            "Translation JSON.parse() payload is not a string literal",
           );
-          this.translations[locale] = JSON.parse(jsonString);
-          return;
-        } catch (e) {
-          console.error("Failed to parse JSON from standard extraction.");
         }
 
-        let jsonMatch = chunkText.match(/JSON\.parse\(['"](.*?)['"]\)/);
-        if (jsonMatch) {
-          try {
-            const jsonString = replaceEscaped(jsonMatch[1]);
-            this.translations[locale] = JSON.parse(jsonString);
-            return;
-          } catch (e) {
-            console.error("Failed to parse JSON from direct extraction.");
+        cursor += 1;
+
+        let literalBody = "";
+        let closed = false;
+
+        for (; cursor < chunkText.length; cursor += 1) {
+          const char = chunkText[cursor];
+
+          if (char === "\\") {
+            if (cursor + 1 >= chunkText.length) break;
+
+            literalBody += char + chunkText[cursor + 1];
+            cursor += 1;
+            continue;
           }
+
+          if (char === quote) {
+            closed = true;
+            break;
+          }
+
+          literalBody += char;
         }
 
-        const jsonStart = chunkText.indexOf("{");
-        const jsonEnd = chunkText.lastIndexOf("}") + 1;
-        if (jsonStart !== -1 && jsonEnd > jsonStart) {
-          const jsonString = chunkText.substring(jsonStart, jsonEnd);
-          try {
-            this.translations[locale] = JSON.parse(jsonString);
-            return;
-          } catch (e) {
-            console.error("Failed to parse JSON from chunk:", e);
-          }
+        if (!closed) {
+          throw new Error(
+            "Translation JSON.parse() string literal is unterminated",
+          );
         }
+
+        const jsonString = literalBody.replace(
+          /\\(u[0-9a-fA-F]{4}|x[0-9a-fA-F]{2}|[\s\S])/g,
+          (_, esc) => {
+            if (esc[0] === "u" || esc[0] === "x") {
+              return String.fromCharCode(parseInt(esc.slice(1), 16));
+            }
+
+            return {
+              n: "\n",
+              r: "\r",
+              t: "\t",
+              b: "\b",
+              f: "\f",
+              v: "\v",
+              0: "\0",
+            }[esc] ?? esc;
+          },
+        );
+
+        this.translations[locale] = JSON.parse(jsonString);
       } catch (error) {
         console.error("Error loading translations:", error);
       } finally {
@@ -1620,6 +1673,15 @@ const ApiUtils = {
     }
   },
 
+  async fetchMediaViews() {
+    const views = await this.fetchViews();
+
+    return views.filter((view) => {
+      const collectionType = String(view.CollectionType || "").toLowerCase();
+      return collectionType === "movies" || collectionType === "tvshows";
+    });
+  },
+
   async resolveLibraries(names) {
     if (!names.length) return [];
 
@@ -1658,7 +1720,9 @@ const ApiUtils = {
       const movieQuota = Math.max(0, CONFIG.maxMovies || 0);
       const seriesQuota = Math.max(0, CONFIG.maxSeries || 0);
 
-      let libraries = await this.resolveLibraries(CONFIG.libraries);
+      let libraries = CONFIG.libraries.length
+        ? await this.resolveLibraries(CONFIG.libraries)
+        : await this.fetchMediaViews();
 
       const trailerLibraries = await this.resolveLibraries(
         CONFIG.trailerLibraries,
@@ -1922,7 +1986,11 @@ const VisibilityObserver = {
   },
 
   updateVisibility() {
-    const container = document.getElementById("slides-container");
+    const homeTab = document.getElementById("homeTab");
+    const container = homeTab
+      ? SlideUtils.getOrCreateSlidesContainer()
+      : document.getElementById("slides-container") ||
+        SlideUtils.slidesContainer;
     if (!container) return;
 
     const activeTab = document.querySelector(".emby-tab-button-active");
@@ -2894,7 +2962,10 @@ const SlideCreator = {
           );
 
           const host = document.getElementById(`yt-player-${itemId}`);
-          host?.replaceChildren(video);
+          if (host) {
+            host.textContent = "";
+            host.appendChild(video);
+          }
           STATE.slideshow.players[itemId] = createLocalPlayer(video);
           STATE.slideshow.slideVideoIds[itemId] = `local:${itemId}`;
         } else {
@@ -2961,7 +3032,7 @@ const SlideshowManager = {
       container.appendChild(dotsContainer);
     }
 
-    dotsContainer.replaceChildren();
+    dotsContainer.textContent = "";
 
     const count = Math.min(STATE.slideshow.totalItems, CONFIG.maxDots);
 
@@ -2998,10 +3069,82 @@ const SlideshowManager = {
     });
   },
 
+  ensureJmpProgressChrome(slide) {
+    if (!isJellyfinMediaPlayer() || !slide) return null;
+
+    const container = document.getElementById("slides-container");
+    const sourceRail = slide.querySelector(".spec-rail");
+    if (!container || !sourceRail) return null;
+
+    let rail = container.querySelector(".jmp-spec-rail");
+    let bar = rail?.querySelector(".jmp-spec-progress");
+
+    if (!rail) {
+      rail = document.createElement("div");
+      rail.className = "jmp-spec-rail";
+
+      bar = document.createElement("span");
+      bar.className = "jmp-spec-progress";
+
+      rail.appendChild(bar);
+      container.appendChild(rail);
+
+      Object.assign(rail.style, {
+        position: "absolute",
+        overflow: "hidden",
+        pointerEvents: "none",
+        zIndex: "6",
+      });
+
+      Object.assign(bar.style, {
+        position: "absolute",
+        left: "0",
+        top: "0",
+        bottom: "0",
+        width: "0",
+        background: "#fff",
+      });
+    }
+
+    this.positionJmpProgressChrome(slide, container);
+
+    if (!this.jmpProgressResizeAttached) {
+      this.jmpProgressResizeAttached = true;
+      window.addEventListener(
+        "resize",
+        () => this.repositionChrome(),
+        { passive: true },
+      );
+    }
+
+    return bar;
+  },
+
+  positionJmpProgressChrome(slide, container) {
+    if (!isJellyfinMediaPlayer() || !slide || !container) return;
+
+    const sourceRail = slide.querySelector(".spec-rail");
+    const rail = container.querySelector(".jmp-spec-rail");
+    if (!sourceRail || !rail) return;
+
+    const sourceRect = sourceRail.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+    const sourceStyle = getComputedStyle(sourceRail);
+
+    rail.style.left = `${sourceRect.left - containerRect.left}px`;
+    rail.style.top = `${sourceRect.top - containerRect.top - 4}px`;
+    rail.style.width = `${sourceRect.width}px`;
+    rail.style.height = `${Math.max(2, sourceRect.height)}px`;
+    rail.style.backgroundColor = sourceStyle.backgroundColor;
+  },
+
   restartProgress(slide) {
     if (!isMarqueeLayout()) return;
 
-    const bar = slide?.querySelector(".spec-progress");
+    const bar = isJellyfinMediaPlayer()
+      ? this.ensureJmpProgressChrome(slide)
+      : slide?.querySelector(".spec-progress");
+
     if (!bar) return;
 
     bar.style.transition = "none";
@@ -3022,7 +3165,11 @@ const SlideshowManager = {
   setProgressRunning(running) {
     if (!isMarqueeLayout()) return;
 
-    const bar = document.querySelector(".slide.active .spec-progress");
+    const activeSlide = document.querySelector(".slide.active");
+    const bar = isJellyfinMediaPlayer()
+      ? this.ensureJmpProgressChrome(activeSlide)
+      : activeSlide?.querySelector(".spec-progress");
+
     if (!bar) return;
 
     if (!running) {
@@ -3052,7 +3199,11 @@ const SlideshowManager = {
     const slide =
       container.querySelector(".slide.active") ||
       container.querySelector(".slide");
-    if (slide) this.positionDots(slide, container);
+
+    if (slide) {
+      this.positionDots(slide, container);
+      this.positionJmpProgressChrome(slide, container);
+    }
   },
 
   watchContentHeight(container) {
@@ -3328,6 +3479,21 @@ const SlideshowManager = {
       slide.querySelector(".backdrop")?.classList.remove("with-video");
       slide.querySelector(".plot-container")?.classList.remove("with-video");
     });
+
+    if (!isJellyfinMediaPlayer()) {
+      document
+        .querySelectorAll("#slides-container .backdrop")
+        .forEach((backdrop) => {
+          backdrop.style.opacity = "";
+        });
+
+      document
+        .querySelectorAll("#slides-container .video-container")
+        .forEach((trailerContainer) => {
+          trailerContainer.style.removeProperty("mask-image");
+          trailerContainer.style.removeProperty("-webkit-mask-image");
+        });
+    }
   },
 
   async preloadAdjacentSlides(currentIndex) {
@@ -3661,9 +3827,35 @@ const SlideshowManager = {
 
   setTrailerVisible(itemId, trailerContainer, on) {
     const slide = document.querySelector(`.slide[data-item-id="${itemId}"]`);
+    const backdrop = slide?.querySelector(".backdrop");
+
     trailerContainer?.classList.toggle("active", on);
-    slide?.querySelector(".backdrop")?.classList.toggle("with-video", on);
+    backdrop?.classList.toggle("with-video", on);
     slide?.querySelector(".plot-container")?.classList.toggle("with-video", on);
+
+    if (!isJellyfinMediaPlayer()) {
+      if (backdrop) {
+        backdrop.style.opacity = on ? "0" : "";
+      }
+
+      if (trailerContainer) {
+        if (on) {
+          trailerContainer.style.setProperty(
+            "mask-image",
+            "var(--slideshow-bottom-fade)",
+          );
+          trailerContainer.style.setProperty(
+            "-webkit-mask-image",
+            "var(--slideshow-bottom-fade)",
+          );
+        } else {
+          trailerContainer.style.removeProperty("mask-image");
+          trailerContainer.style.removeProperty("-webkit-mask-image");
+        }
+      }
+    }
+
+    if (on) applyJmpTrailerGeometry(itemId, trailerContainer);
   },
 
   onTrailerPlaying(itemId, trailerContainer) {
@@ -3721,10 +3913,7 @@ const SlideshowManager = {
     STATE.slideshow.trailerWatchdog = null;
     STATE.slideshow.isVideoPlaying = false;
 
-    const slide = document.querySelector(`.slide[data-item-id="${itemId}"]`);
-    trailerContainer?.classList.remove("active");
-    slide?.querySelector(".backdrop")?.classList.remove("with-video");
-    slide?.querySelector(".plot-container")?.classList.remove("with-video");
+    this.setTrailerVisible(itemId, trailerContainer, false);
 
     STATE.slideshow.slideVideoIds[itemId] = null;
 
@@ -3784,7 +3973,6 @@ const SlideshowManager = {
         }
       }, CONFIG.shuffleInterval);
       STATE.slideshow.slideInterval.stop();
-      STATE.slideshow.slideInterval = null; // Ensure that updateCurrentSlide doesn't restart the timer
 
       await this.updateCurrentSlide(STATE.slideshow.resumeIndex || 0);
     } catch (error) {
@@ -4357,6 +4545,119 @@ const isTouchLayout = () =>
 const isPlateLayout = () => CONFIG.layout === "plate";
 
 const isMarqueeLayout = () => CONFIG.layout === "marquee";
+
+const isJellyfinMediaPlayer = () =>
+  /\bJellyfinMediaPlayer\b/.test(navigator.userAgent || "");
+
+let jmpTrailerResizeAttached = false;
+
+const applyJmpTrailerGeometry = (itemId, trailerContainer = null) => {
+  if (!isJellyfinMediaPlayer()) return;
+
+  const stage = document.getElementById("slides-container");
+  const slide = document.querySelector(`.slide[data-item-id="${itemId}"]`);
+  const container =
+    trailerContainer || slide?.querySelector(".video-container");
+
+  if (!stage || !slide || !container) return;
+
+  const iframe = container.querySelector("iframe");
+  const localVideo = container.querySelector(".local-trailer");
+  const host = container.querySelector(".video-player");
+
+  let playerElement = null;
+  let nestedMedia = null;
+
+  if (iframe) {
+    const wrapper =
+      iframe.parentElement?.classList?.contains("video-player")
+        ? iframe.parentElement
+        : null;
+
+    playerElement = wrapper || iframe;
+    if (wrapper) nestedMedia = iframe;
+  } else if (host) {
+    playerElement = host;
+    if (localVideo && localVideo !== host) nestedMedia = localVideo;
+  } else if (localVideo) {
+    playerElement = localVideo;
+  }
+
+  if (!playerElement) return;
+
+  const stageRect = stage.getBoundingClientRect();
+  const stageWidth = stageRect.width || stage.clientWidth;
+  const stageHeight = stageRect.height || stage.clientHeight;
+
+  if (stageWidth <= 0 || stageHeight <= 0) return;
+
+  const aspect = 16 / 9;
+  let playerWidth;
+  let playerHeight;
+
+  if (stageWidth / stageHeight > aspect) {
+    playerWidth = stageWidth;
+    playerHeight = stageWidth / aspect;
+  } else {
+    playerHeight = stageHeight;
+    playerWidth = stageHeight * aspect;
+  }
+
+  const important = (element, property, value) =>
+    element.style.setProperty(property, value, "important");
+
+  important(container, "position", "absolute");
+  important(container, "top", "0");
+  important(container, "right", "0");
+  important(container, "bottom", "0");
+  important(container, "left", "0");
+  important(container, "width", "100%");
+  important(container, "height", "100%");
+  important(container, "container-type", "normal");
+  important(container, "overflow", "hidden");
+
+  // Older QtWebEngine builds fail to composite the masked video layer.
+  important(container, "mask-image", "none");
+  important(container, "-webkit-mask-image", "none");
+  important(container, "z-index", "2");
+
+  important(playerElement, "position", "absolute");
+  important(playerElement, "left", "50%");
+  important(playerElement, "top", "50%");
+  important(playerElement, "width", `${playerWidth}px`);
+  important(playerElement, "height", `${playerHeight}px`);
+  important(playerElement, "min-width", "0");
+  important(playerElement, "min-height", "0");
+  important(playerElement, "transform", "translate(-50%, -50%)");
+  important(playerElement, "display", "block");
+  important(playerElement, "visibility", "visible");
+  important(playerElement, "opacity", "1");
+
+  if (nestedMedia) {
+    important(nestedMedia, "position", "absolute");
+    important(nestedMedia, "left", "0");
+    important(nestedMedia, "top", "0");
+    important(nestedMedia, "width", "100%");
+    important(nestedMedia, "height", "100%");
+    important(nestedMedia, "display", "block");
+    important(nestedMedia, "visibility", "visible");
+    important(nestedMedia, "opacity", "1");
+  }
+
+  if (!jmpTrailerResizeAttached) {
+    jmpTrailerResizeAttached = true;
+    window.addEventListener(
+      "resize",
+      () => {
+        if (!STATE.slideshow.isVideoPlaying) return;
+        const activeItemId =
+          STATE.slideshow.itemIds[STATE.slideshow.currentSlideIndex];
+        if (activeItemId) applyJmpTrailerGeometry(activeItemId);
+      },
+      { passive: true },
+    );
+  }
+};
 
 const slidesInit = async () => {
   if (STATE.slideshow.hasInitialized) {
