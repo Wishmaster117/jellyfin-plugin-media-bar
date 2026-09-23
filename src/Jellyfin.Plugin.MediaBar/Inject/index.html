@@ -51,7 +51,23 @@
                 if (config.FadeTransitionDuration >= 0) {
                     window.slideshowPure.CONFIG.fadeTransitionDuration = config.FadeTransitionDuration;
                 }
-                if (config.EnableTrailers !== undefined && config.EnableTrailers !== null) {
+                let hasStoredEnableTrailers = false;
+                try {
+                    const rawStoredConfig = localStorage.getItem("mediabar.config");
+                    const storedConfig = rawStoredConfig ? JSON.parse(rawStoredConfig) : null;
+                    hasStoredEnableTrailers =
+                        storedConfig &&
+                        storedConfig.__v === 1 &&
+                        Object.prototype.hasOwnProperty.call(storedConfig, "enableTrailers");
+                } catch {
+                    hasStoredEnableTrailers = false;
+                }
+
+                if (
+                    !hasStoredEnableTrailers &&
+                    config.EnableTrailers !== undefined &&
+                    config.EnableTrailers !== null
+                ) {
                     window.slideshowPure.CONFIG.enableTrailers = config.EnableTrailers;
                 }
                 if (config.SyncPageBackdrop !== undefined && config.SyncPageBackdrop !== null) {
