@@ -1,23 +1,23 @@
 ﻿using System.Reflection;
 using Jellyfin.Extensions;
-using Jellyfin.Plugin.MediaBar.Configuration;
-using Jellyfin.Plugin.MediaBar.Helpers;
-using Jellyfin.Plugin.MediaBar.Model;
+using Jellyfin.Plugin.MediaBarAlexflix.Configuration;
+using Jellyfin.Plugin.MediaBarAlexflix.Helpers;
+using Jellyfin.Plugin.MediaBarAlexflix.Model;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Playlists;
 using Microsoft.AspNetCore.Mvc;
 using MediaBrowser.Controller.Entities.TV;
 
-namespace Jellyfin.Plugin.MediaBar.Controllers
+namespace Jellyfin.Plugin.MediaBarAlexflix.Controllers
 {
     [Route("[controller]")]
-    public class MediaBarController : ControllerBase
+    public class MediaBarAlexflixController : ControllerBase
     {
         [HttpGet("{file}")]
         public ActionResult GetFile([FromRoute] string file)
         {
-            Stream? fileStream = Assembly.GetExecutingAssembly().GetManifestResourceStream("Jellyfin.Plugin.MediaBar.Inject." + file);
+            Stream? fileStream = Assembly.GetExecutingAssembly().GetManifestResourceStream("Jellyfin.Plugin.MediaBarAlexflix.Inject." + file);
 
             if (fileStream == null)
             {

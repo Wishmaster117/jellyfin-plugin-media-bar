@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace Jellyfin.Plugin.MediaBar.Model
+namespace Jellyfin.Plugin.MediaBarAlexflix.Model
 {
     public class PatchRequestPayload
     {

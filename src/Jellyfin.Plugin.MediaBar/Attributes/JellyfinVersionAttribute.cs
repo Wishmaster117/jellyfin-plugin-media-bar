@@ -1,6 +1,6 @@
 ﻿using System.Reflection;
 
-namespace Jellyfin.Plugin.MediaBar.Attributes
+namespace Jellyfin.Plugin.MediaBarAlexflix.Attributes
 {
     [AttributeUsage(AttributeTargets.Assembly)]
     public class JellyfinVersionAttribute : Attribute

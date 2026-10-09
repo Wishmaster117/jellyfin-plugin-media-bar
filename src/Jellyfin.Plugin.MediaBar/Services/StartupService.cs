@@ -4,9 +4,9 @@ using System.Net.Http.Headers;
 using System.Reflection;
 using System.Runtime.Loader;
 using System.Text;
-using Jellyfin.Plugin.MediaBar.Helpers;
-using Jellyfin.Plugin.MediaBar.JellyfinVersionSpecific;
-using Jellyfin.Plugin.MediaBar.Model;
+using Jellyfin.Plugin.MediaBarAlexflix.Helpers;
+using Jellyfin.Plugin.MediaBarAlexflix.JellyfinVersionSpecific;
+using Jellyfin.Plugin.MediaBarAlexflix.Model;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Library;
@@ -16,13 +16,13 @@ using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
-namespace Jellyfin.Plugin.MediaBar.Services
+namespace Jellyfin.Plugin.MediaBarAlexflix.Services
 {
     public class StartupService : IScheduledTask
     {
-        public string Name => "MediaBar Startup";
+        public string Name => "Media Bar ALEXFLIX Startup";
 
-        public string Key => "Jellyfin.Plugin.MediaBar.Startup";
+        public string Key => "Jellyfin.Plugin.MediaBarAlexflix.Startup";
         
         public string Description => "Startup Service for MediaBar";
         
@@ -50,7 +50,7 @@ namespace Jellyfin.Plugin.MediaBar.Services
 
             {
                 JObject payload = new JObject();
-                payload.Add("id", "0dfac9d7-d898-4944-900b-1c1837707279");
+                payload.Add("id", "7680e282-b969-4b4f-98d8-ba9a65309c0a");
                 payload.Add("fileNamePattern", "index.html");
                 payload.Add("callbackAssembly", GetType().Assembly.FullName);
                 payload.Add("callbackClass", typeof(TransformationPatches).FullName);
@@ -60,7 +60,7 @@ namespace Jellyfin.Plugin.MediaBar.Services
             }
             {
                 JObject payload = new JObject();
-                payload.Add("id", "8d374d6b-3c5b-464a-a2a2-96e92fa81345");
+                payload.Add("id", "cc4388bb-e016-4ab0-ba1f-a86c9f68dd5e");
                 payload.Add("fileNamePattern", "avatars/list.txt");
                 payload.Add("callbackAssembly", GetType().Assembly.FullName);
                 payload.Add("callbackClass", typeof(TransformationPatches).FullName);

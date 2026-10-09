@@ -1,13 +1,13 @@
-﻿<link rel="stylesheet" href="{{AssetBaseUrl}}/slideshowpure.css" />
+<link rel="stylesheet" href="{{AssetBaseUrl}}/slideshowpure.css" />
 <script defer src="{{AssetBaseUrl}}/slideshowpure.js"></script>
 <script defer>
-    if (typeof MediaBarConfigHandler == 'undefined') {
-        const MediaBarConfigHandler = {
+    if (typeof AlexflixConfigHandler == 'undefined') {
+        const AlexflixConfigHandler = {
             loadConfig: async function () {
-                return await window.ApiClient.getJSON(window.ApiClient.getUrl("MediaBar/WebConfig"));
+                return await window.ApiClient.getJSON(window.ApiClient.getUrl("MediaBarAlexflix/WebConfig"));
             },
             init: async function () {
-                let config = await MediaBarConfigHandler.loadConfig();
+                let config = await AlexflixConfigHandler.loadConfig();
 
                 if (config.ImageSvgs.ImdbLogo !== null && config.ImageSvgs.ImdbLogo !== undefined) {
                     window.slideshowPure.CONFIG.IMAGE_SVG.imdbLogo = config.ImageSvgs.ImdbLogo;
@@ -51,20 +51,26 @@
                 if (config.FadeTransitionDuration >= 0) {
                     window.slideshowPure.CONFIG.fadeTransitionDuration = config.FadeTransitionDuration;
                 }
-                let hasStoredEnableTrailers = false;
+                // ALEXFLIX_LOCAL_CONFIG_PRECEDENCE_V6A
+                // An explicit per-client trailer preference wins over WebConfig.
+                let localEnableTrailersExplicit = false;
                 try {
-                    const rawStoredConfig = localStorage.getItem("mediabar.config");
-                    const storedConfig = rawStoredConfig ? JSON.parse(rawStoredConfig) : null;
-                    hasStoredEnableTrailers =
-                        storedConfig &&
-                        storedConfig.__v === 1 &&
-                        Object.prototype.hasOwnProperty.call(storedConfig, "enableTrailers");
-                } catch {
-                    hasStoredEnableTrailers = false;
+                    const storedMediaBarConfig = JSON.parse(
+                        localStorage.getItem("mediabar.config") || "null"
+                    );
+                    localEnableTrailersExplicit =
+                        storedMediaBarConfig !== null &&
+                        typeof storedMediaBarConfig === "object" &&
+                        Object.prototype.hasOwnProperty.call(
+                            storedMediaBarConfig,
+                            "enableTrailers"
+                        );
+                } catch (_) {
+                    localEnableTrailersExplicit = false;
                 }
 
                 if (
-                    !hasStoredEnableTrailers &&
+                    !localEnableTrailersExplicit &&
                     config.EnableTrailers !== undefined &&
                     config.EnableTrailers !== null
                 ) {
@@ -83,7 +89,7 @@
             if (window.slideshowPure && window.slideshowPure.CONFIG && window.ApiClient) {
                 clearInterval(waitingForPluginInterval);
                 
-                MediaBarConfigHandler.init().then(r => {
+                AlexflixConfigHandler.init().then(r => {
                     console.log('Loaded Media Bar plugin config into plugin javascript');
                 });
             }

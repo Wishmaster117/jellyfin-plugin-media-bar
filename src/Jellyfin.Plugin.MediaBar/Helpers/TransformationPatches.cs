@@ -1,16 +1,16 @@
 ﻿using System.Reflection;
 using System.Text.RegularExpressions;
 using Jellyfin.Extensions;
-using Jellyfin.Plugin.MediaBar.Configuration;
-using Jellyfin.Plugin.MediaBar.JellyfinVersionSpecific;
-using Jellyfin.Plugin.MediaBar.Model;
+using Jellyfin.Plugin.MediaBarAlexflix.Configuration;
+using Jellyfin.Plugin.MediaBarAlexflix.JellyfinVersionSpecific;
+using Jellyfin.Plugin.MediaBarAlexflix.Model;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Playlists;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Jellyfin.Plugin.MediaBar.Helpers
+namespace Jellyfin.Plugin.MediaBarAlexflix.Helpers
 {
     public static class TransformationPatches
     {
@@ -112,7 +112,7 @@ namespace Jellyfin.Plugin.MediaBar.Helpers
             if (PluginConfiguration.UsesEmbeddedAssets(version, config.AllowUnpinnedRefs))
             {
                 // Relative to /web/ so it resolves when Jellyfin is hosted under a base path
-                return "../MediaBar";
+                return "../MediaBarAlexflix";
             }
 
             if (string.Equals(version, "latest", StringComparison.OrdinalIgnoreCase))
@@ -121,7 +121,7 @@ namespace Jellyfin.Plugin.MediaBar.Helpers
                 version = "main";
             }
 
-            return $"https://cdn.jsdelivr.net/gh/IAmParadox27/jellyfin-plugin-media-bar@{version}";
+            return "../MediaBarAlexflix";
         }
 
         public static string HomeHtmlChunk(PatchRequestPayload payload)

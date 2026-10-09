@@ -1,6 +1,6 @@
 ﻿using MediaBrowser.Model.Tasks;
 
-namespace Jellyfin.Plugin.MediaBar.JellyfinVersionSpecific
+namespace Jellyfin.Plugin.MediaBarAlexflix.JellyfinVersionSpecific
 {
     public static class StartupServiceHelper
     {

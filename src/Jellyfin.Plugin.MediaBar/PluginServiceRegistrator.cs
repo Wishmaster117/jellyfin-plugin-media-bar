@@ -1,9 +1,9 @@
-﻿using Jellyfin.Plugin.MediaBar.Services;
+﻿using Jellyfin.Plugin.MediaBarAlexflix.Services;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Plugins;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Jellyfin.Plugin.MediaBar
+namespace Jellyfin.Plugin.MediaBarAlexflix
 {
     public class PluginServiceRegistrator : IPluginServiceRegistrator
     {

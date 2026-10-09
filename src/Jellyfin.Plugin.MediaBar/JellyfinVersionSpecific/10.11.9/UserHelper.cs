@@ -1,6 +1,6 @@
 ﻿using MediaBrowser.Controller.Library;
 
-namespace Jellyfin.Plugin.MediaBar.JellyfinVersionSpecific
+namespace Jellyfin.Plugin.MediaBarAlexflix.JellyfinVersionSpecific
 {
     public static class UserHelper
     {

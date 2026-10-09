@@ -2962,6 +2962,8 @@ const SlideCreator = {
           );
 
           const host = document.getElementById(`yt-player-${itemId}`);
+          // ALEXFLIX_LOCAL_JMP_DOM_COMPAT_V5B
+          // Compatible with older Jellyfin Media Player webviews.
           if (host) {
             host.textContent = "";
             host.appendChild(video);
@@ -3032,6 +3034,8 @@ const SlideshowManager = {
       container.appendChild(dotsContainer);
     }
 
+    // ALEXFLIX_LOCAL_JMP_DOM_COMPAT_V5B
+    // Clear pagination children without requiring a newer DOM API.
     dotsContainer.textContent = "";
 
     const count = Math.min(STATE.slideshow.totalItems, CONFIG.maxDots);
@@ -3069,82 +3073,164 @@ const SlideshowManager = {
     });
   },
 
-  ensureJmpProgressChrome(slide) {
-    if (!isJellyfinMediaPlayer() || !slide) return null;
+  hideJmpProgressChrome() {
+    if (!isJellyfinMediaPlayer()) return;
 
     const container = document.getElementById("slides-container");
-    const sourceRail = slide.querySelector(".spec-rail");
+    const rail = container?.querySelector(".jmp-spec-rail");
+
+    if (rail) {
+      rail.style.display = "none";
+    }
+  },
+
+  positionJmpProgressChrome(slide, containerArg, railArg) {
+    if (!isJellyfinMediaPlayer()) return;
+
+    const container =
+      containerArg || document.getElementById("slides-container");
+
+    const rail =
+      railArg || container?.querySelector(".jmp-spec-rail");
+
+    const sourceRail = slide?.querySelector(".spec-rail");
+
+    if (
+      !container ||
+      !rail ||
+      !sourceRail ||
+      !isMarqueeLayout()
+    ) {
+      if (rail) rail.style.display = "none";
+      return;
+    }
+
+    const containerRect = container.getBoundingClientRect();
+    const sourceRect = sourceRail.getBoundingClientRect();
+
+    if (sourceRect.width <= 0) {
+      rail.style.display = "none";
+      return;
+    }
+
+    rail.style.left =
+      `${sourceRect.left - containerRect.left}px`;
+
+    // ALEXFLIX_LOCAL_JMP_PROGRESS_OFFSET_V7B
+    // Lift JMP external progress chrome 4px to clear certification badges.
+    rail.style.top =
+      `${sourceRect.top - containerRect.top - 4}px`;
+
+    rail.style.width = `${sourceRect.width}px`;
+
+    // QtWebEngine reliably paints this external chrome at >= 2px.
+    // Browser clients never use this compatibility rail.
+    rail.style.height =
+      `${Math.max(2, sourceRect.height || 0)}px`;
+
+    rail.style.display = "block";
+  },
+
+  ensureJmpProgressChrome(slide) {
+    if (
+      !isJellyfinMediaPlayer() ||
+      !isMarqueeLayout()
+    ) {
+      return null;
+    }
+
+    const container = document.getElementById("slides-container");
+    const sourceRail = slide?.querySelector(".spec-rail");
+
     if (!container || !sourceRail) return null;
 
     let rail = container.querySelector(".jmp-spec-rail");
-    let bar = rail?.querySelector(".jmp-spec-progress");
 
     if (!rail) {
       rail = document.createElement("div");
       rail.className = "jmp-spec-rail";
 
-      bar = document.createElement("span");
-      bar.className = "jmp-spec-progress";
-
-      rail.appendChild(bar);
-      container.appendChild(rail);
-
       Object.assign(rail.style, {
         position: "absolute",
-        overflow: "hidden",
-        pointerEvents: "none",
+        left: "0",
+        top: "0",
+        width: "0",
+        height: "2px",
+        background: "rgba(255, 255, 255, 0.22)",
         zIndex: "6",
+        pointerEvents: "none",
+        overflow: "hidden",
+        display: "block",
+        visibility: "visible",
+        opacity: "1",
       });
+
+      const progress = document.createElement("span");
+      progress.className = "jmp-spec-progress";
+
+      Object.assign(progress.style, {
+        position: "absolute",
+        left: "0",
+        top: "0",
+        width: "0%",
+        height: "100%",
+        background: "#fff",
+        display: "block",
+        visibility: "visible",
+        opacity: "1",
+        pointerEvents: "none",
+      });
+
+      rail.appendChild(progress);
+      container.appendChild(rail);
+    }
+
+    let bar = rail.querySelector(".jmp-spec-progress");
+
+    if (!bar) {
+      bar = document.createElement("span");
+      bar.className = "jmp-spec-progress";
 
       Object.assign(bar.style, {
         position: "absolute",
         left: "0",
         top: "0",
-        bottom: "0",
-        width: "0",
+        width: "0%",
+        height: "100%",
         background: "#fff",
+        display: "block",
+        visibility: "visible",
+        opacity: "1",
+        pointerEvents: "none",
       });
+
+      rail.appendChild(bar);
     }
 
-    this.positionJmpProgressChrome(slide, container);
-
-    if (!this.jmpProgressResizeAttached) {
-      this.jmpProgressResizeAttached = true;
-      window.addEventListener(
-        "resize",
-        () => this.repositionChrome(),
-        { passive: true },
-      );
-    }
+    this.positionJmpProgressChrome(
+      slide,
+      container,
+      rail,
+    );
 
     return bar;
   },
 
-  positionJmpProgressChrome(slide, container) {
-    if (!isJellyfinMediaPlayer() || !slide || !container) return;
+  getProgressBar(slide) {
+    if (isJellyfinMediaPlayer()) {
+      return this.ensureJmpProgressChrome(slide);
+    }
 
-    const sourceRail = slide.querySelector(".spec-rail");
-    const rail = container.querySelector(".jmp-spec-rail");
-    if (!sourceRail || !rail) return;
-
-    const sourceRect = sourceRail.getBoundingClientRect();
-    const containerRect = container.getBoundingClientRect();
-    const sourceStyle = getComputedStyle(sourceRail);
-
-    rail.style.left = `${sourceRect.left - containerRect.left}px`;
-    rail.style.top = `${sourceRect.top - containerRect.top - 4}px`;
-    rail.style.width = `${sourceRect.width}px`;
-    rail.style.height = `${Math.max(2, sourceRect.height)}px`;
-    rail.style.backgroundColor = sourceStyle.backgroundColor;
+    return slide?.querySelector(".spec-progress") || null;
   },
 
   restartProgress(slide) {
-    if (!isMarqueeLayout()) return;
+    if (!isMarqueeLayout()) {
+      this.hideJmpProgressChrome();
+      return;
+    }
 
-    const bar = isJellyfinMediaPlayer()
-      ? this.ensureJmpProgressChrome(slide)
-      : slide?.querySelector(".spec-progress");
-
+    const bar = this.getProgressBar(slide);
     if (!bar) return;
 
     bar.style.transition = "none";
@@ -3158,37 +3244,47 @@ const SlideshowManager = {
 
     if (!running) return;
 
-    bar.style.transition = `width ${CONFIG.shuffleInterval}ms linear`;
+    bar.style.transition =
+      `width ${CONFIG.shuffleInterval}ms linear`;
+
     bar.style.width = "100%";
   },
 
   setProgressRunning(running) {
-    if (!isMarqueeLayout()) return;
+    if (!isMarqueeLayout()) {
+      this.hideJmpProgressChrome();
+      return;
+    }
 
-    const activeSlide = document.querySelector(".slide.active");
-    const bar = isJellyfinMediaPlayer()
-      ? this.ensureJmpProgressChrome(activeSlide)
-      : activeSlide?.querySelector(".spec-progress");
+    const slide = document.querySelector(".slide.active");
+    const bar = this.getProgressBar(slide);
 
     if (!bar) return;
 
     if (!running) {
-
       const current = getComputedStyle(bar).width;
+
       bar.style.transition = "none";
       bar.style.width = current;
+
       return;
     }
 
     const container = bar.parentElement;
     if (!container) return;
+
     const done = bar.getBoundingClientRect().width;
-    const total = container.getBoundingClientRect().width || 1;
+    const total =
+      container.getBoundingClientRect().width || 1;
+
     const remaining = Math.max(
       0,
       CONFIG.shuffleInterval * (1 - done / total),
     );
-    bar.style.transition = `width ${remaining}ms linear`;
+
+    bar.style.transition =
+      `width ${remaining}ms linear`;
+
     bar.style.width = "100%";
   },
 
@@ -3200,9 +3296,15 @@ const SlideshowManager = {
       container.querySelector(".slide.active") ||
       container.querySelector(".slide");
 
-    if (slide) {
-      this.positionDots(slide, container);
-      this.positionJmpProgressChrome(slide, container);
+    if (!slide) return;
+
+    this.positionDots(slide, container);
+
+    if (
+      isJellyfinMediaPlayer() &&
+      isMarqueeLayout()
+    ) {
+      this.ensureJmpProgressChrome(slide);
     }
   },
 
@@ -3480,13 +3582,15 @@ const SlideshowManager = {
       slide.querySelector(".plot-container")?.classList.remove("with-video");
     });
 
-    if (!isJellyfinMediaPlayer()) {
-      document
-        .querySelectorAll("#slides-container .backdrop")
-        .forEach((backdrop) => {
-          backdrop.style.opacity = "";
-        });
+    // V9 cleanup for manual navigation / interrupted trailers.
+    document
+      .querySelectorAll("#slides-container .backdrop")
+      .forEach((backdrop) => {
+        backdrop.style.opacity = "";
+      });
 
+    // V10 cleanup: restore the upstream masks after an interrupted web trailer.
+    if (!isJellyfinMediaPlayer()) {
       document
         .querySelectorAll("#slides-container .video-container")
         .forEach((trailerContainer) => {
@@ -3833,11 +3937,21 @@ const SlideshowManager = {
     backdrop?.classList.toggle("with-video", on);
     slide?.querySelector(".plot-container")?.classList.toggle("with-video", on);
 
+    // ALEXFLIX_LOCAL_WEB_TRAILER_EXCLUSIVITY_V9
+    // The web Marquee layout normally keeps 40% of the slide backdrop
+    // visible beside the trailer. Hide only that backdrop while the
+    // trailer is active. JMP keeps its V8 geometry path unchanged.
     if (!isJellyfinMediaPlayer()) {
       if (backdrop) {
         backdrop.style.opacity = on ? "0" : "";
       }
 
+      // ALEXFLIX_LOCAL_WEB_TRAILER_FULLBLEED_V10
+      // Upstream intentionally fades the first 10-30% of the trailer with
+      // --slideshow-video-side-fade. With V9 hiding the backdrop, that
+      // transparent area exposes the dark stage. On web, retain only the
+      // bottom fade so the trailer paints across the complete hero width.
+      // The existing gradient overlay remains above it for text readability.
       if (trailerContainer) {
         if (on) {
           trailerContainer.style.setProperty(
@@ -3855,7 +3969,301 @@ const SlideshowManager = {
       }
     }
 
-    if (on) applyJmpTrailerGeometry(itemId, trailerContainer);
+    if (on) {
+      this.applyJmpTrailerGeometry(itemId, trailerContainer);
+    }
+  },
+
+  // ALEXFLIX_LOCAL_JMP_TRAILER_GEOMETRY_V8
+  // QtWebEngine used by JMP does not reliably resolve the modern
+  // container-query geometry used by .video-container/.video-player.
+  // Browser clients keep the upstream CSS path unchanged.
+  applyJmpTrailerGeometry(itemId, trailerContainer) {
+    if (!isJellyfinMediaPlayer()) return;
+
+    const stage = document.getElementById("slides-container");
+
+    const slide = document.querySelector(
+      `.slide[data-item-id="${itemId}"]`,
+    );
+
+    const container =
+      trailerContainer ||
+      slide?.querySelector(".video-container");
+
+    if (!stage || !slide || !container) return;
+
+    const iframe = container.querySelector("iframe");
+    const localVideo = container.querySelector(".local-trailer");
+    const host = container.querySelector(".video-player");
+
+    let playerElement = null;
+    let nestedMedia = null;
+
+    if (iframe) {
+      const wrapper =
+        iframe.parentElement?.classList?.contains("video-player")
+          ? iframe.parentElement
+          : null;
+
+      playerElement = wrapper || iframe;
+
+      if (wrapper) {
+        nestedMedia = iframe;
+      }
+    } else if (host) {
+      playerElement = host;
+
+      if (localVideo && localVideo !== host) {
+        nestedMedia = localVideo;
+      }
+    } else if (localVideo) {
+      playerElement = localVideo;
+    }
+
+    if (!playerElement) return;
+
+    const stageRect = stage.getBoundingClientRect();
+
+    const stageWidth =
+      stageRect.width || stage.clientWidth;
+
+    const stageHeight =
+      stageRect.height || stage.clientHeight;
+
+    if (stageWidth <= 0 || stageHeight <= 0) {
+      return;
+    }
+
+    const aspect = 16 / 9;
+
+    let playerWidth;
+    let playerHeight;
+
+    // 16:9 cover: fill the complete MediaBar surface.
+    if (stageWidth / stageHeight > aspect) {
+      playerWidth = stageWidth;
+      playerHeight = stageWidth / aspect;
+    } else {
+      playerHeight = stageHeight;
+      playerWidth = stageHeight * aspect;
+    }
+
+    container.style.setProperty(
+      "position",
+      "absolute",
+      "important",
+    );
+
+    container.style.setProperty(
+      "top",
+      "0",
+      "important",
+    );
+
+    container.style.setProperty(
+      "right",
+      "0",
+      "important",
+    );
+
+    container.style.setProperty(
+      "bottom",
+      "0",
+      "important",
+    );
+
+    container.style.setProperty(
+      "left",
+      "0",
+      "important",
+    );
+
+    container.style.setProperty(
+      "width",
+      "100%",
+      "important",
+    );
+
+    container.style.setProperty(
+      "height",
+      "100%",
+      "important",
+    );
+
+    container.style.setProperty(
+      "container-type",
+      "normal",
+      "important",
+    );
+
+    container.style.setProperty(
+      "overflow",
+      "hidden",
+      "important",
+    );
+
+    // These two masks are part of the Qt/JMP rendering failure.
+    // The backdrop.with-video layer still supplies the left-side blend.
+    container.style.setProperty(
+      "mask-image",
+      "none",
+      "important",
+    );
+
+    container.style.setProperty(
+      "-webkit-mask-image",
+      "none",
+      "important",
+    );
+
+    container.style.setProperty(
+      "z-index",
+      "2",
+      "important",
+    );
+
+    playerElement.style.setProperty(
+      "position",
+      "absolute",
+      "important",
+    );
+
+    playerElement.style.setProperty(
+      "left",
+      "50%",
+      "important",
+    );
+
+    playerElement.style.setProperty(
+      "top",
+      "50%",
+      "important",
+    );
+
+    playerElement.style.setProperty(
+      "width",
+      `${playerWidth}px`,
+      "important",
+    );
+
+    playerElement.style.setProperty(
+      "height",
+      `${playerHeight}px`,
+      "important",
+    );
+
+    playerElement.style.setProperty(
+      "min-width",
+      "0",
+      "important",
+    );
+
+    playerElement.style.setProperty(
+      "min-height",
+      "0",
+      "important",
+    );
+
+    playerElement.style.setProperty(
+      "transform",
+      "translate(-50%, -50%)",
+      "important",
+    );
+
+    playerElement.style.setProperty(
+      "display",
+      "block",
+      "important",
+    );
+
+    playerElement.style.setProperty(
+      "visibility",
+      "visible",
+      "important",
+    );
+
+    playerElement.style.setProperty(
+      "opacity",
+      "1",
+      "important",
+    );
+
+    if (nestedMedia) {
+      nestedMedia.style.setProperty(
+        "position",
+        "absolute",
+        "important",
+      );
+
+      nestedMedia.style.setProperty(
+        "left",
+        "0",
+        "important",
+      );
+
+      nestedMedia.style.setProperty(
+        "top",
+        "0",
+        "important",
+      );
+
+      nestedMedia.style.setProperty(
+        "width",
+        "100%",
+        "important",
+      );
+
+      nestedMedia.style.setProperty(
+        "height",
+        "100%",
+        "important",
+      );
+
+      nestedMedia.style.setProperty(
+        "display",
+        "block",
+        "important",
+      );
+
+      nestedMedia.style.setProperty(
+        "visibility",
+        "visible",
+        "important",
+      );
+
+      nestedMedia.style.setProperty(
+        "opacity",
+        "1",
+        "important",
+      );
+    }
+
+    if (!this.jmpTrailerResizeAttached) {
+      this.jmpTrailerResizeAttached = true;
+
+      window.addEventListener(
+        "resize",
+        () => {
+          if (
+            !isJellyfinMediaPlayer() ||
+            !STATE.slideshow.isVideoPlaying
+          ) {
+            return;
+          }
+
+          const activeItemId =
+            STATE.slideshow.itemIds[
+              STATE.slideshow.currentSlideIndex
+            ];
+
+          if (activeItemId) {
+            this.applyJmpTrailerGeometry(activeItemId);
+          }
+        },
+        { passive: true },
+      );
+    }
   },
 
   onTrailerPlaying(itemId, trailerContainer) {
@@ -3986,6 +4394,26 @@ const SlideshowManager = {
 const LayoutSync = {
   attached: false,
   published: {},
+  pending: false,
+  rowsObserver: null,
+  observedRows: null,
+  observedPage: null,
+  domObserver: null,
+
+  // ALEXFLIX_LOCAL_BACKNAV_SYNC_V2
+  scheduleUpdate() {
+    if (this.pending) return;
+    this.pending = true;
+
+    const run = () => {
+      if (!this.pending) return;
+      this.pending = false;
+      this.update();
+    };
+
+    requestAnimationFrame(run);
+    setTimeout(run, 250);
+  },
 
   publish(name, value) {
     if (this.published[name] === value) return false;
@@ -3995,72 +4423,172 @@ const LayoutSync = {
   },
 
   update() {
-    const page = document.querySelector(".page");
+    const rows = document.querySelector(".homeSectionsContainer");
+
+    const page =
+      rows?.closest(".page") ||
+      document.querySelector(".page");
+
     if (!page) return;
 
     const offset = Math.max(
       0,
       Math.round(
-        page.getBoundingClientRect().top + document.scrollingElement.scrollTop,
+        page.getBoundingClientRect().top +
+          document.scrollingElement.scrollTop,
       ),
     );
 
-    let moved = this.publish("--slideshow-page-offset", `${offset}px`);
+    let moved = this.publish(
+      "--slideshow-page-offset",
+      `${offset}px`,
+    );
 
-    const rows = document.querySelector(".homeSectionsContainer");
     const stage = document.getElementById("slides-container");
+
     if (rows && stage) {
       const rowsTop = Math.round(
-        rows.getBoundingClientRect().top - stage.getBoundingClientRect().top,
+        rows.getBoundingClientRect().top -
+          stage.getBoundingClientRect().top,
       );
+
       if (rowsTop > 0) {
-        moved = this.publish("--slideshow-rows-top", `${rowsTop}px`) || moved;
+        moved =
+          this.publish(
+            "--slideshow-rows-top",
+            `${rowsTop}px`,
+          ) || moved;
       }
     }
 
-    if (moved) SlideshowManager.repositionChrome();
+    if (rows) {
+      this.observeRows(rows, page);
+    }
+
+    if (moved) {
+      SlideshowManager.repositionChrome();
+    }
   },
 
   init() {
+    /*
+     * update() runs before the attached guard intentionally.
+     *
+     * slidesInit() can call LayoutSync.init() again after Jellyfin has
+     * recreated the Home DOM. This lets us immediately bind the new
+     * homeSectionsContainer even though global listeners were already
+     * installed previously.
+     */
     this.update();
+
     if (this.attached) return;
+
     this.attached = true;
 
-    window.addEventListener("resize", () => this.update(), { passive: true });
-    window.addEventListener("hashchange", () => this.update());
+    const schedule = () => this.scheduleUpdate();
 
-    document.fonts?.ready?.then(() => this.update()).catch(() => {});
+    window.addEventListener(
+      "resize",
+      schedule,
+      { passive: true },
+    );
 
-    const ready = () =>
-      document.querySelector(".page") &&
-      document.querySelector(".homeSectionsContainer");
+    /*
+     * Jellyfin can return to Home through several navigation paths:
+     *
+     * - Jellyfin Home navigation
+     * - browser Back / Forward
+     * - hash routing
+     * - browser page restoration
+     *
+     * popstate + pageshow supplement hashchange, while the MutationObserver
+     * below handles React replacing the actual Home nodes.
+     */
+    window.addEventListener("hashchange", schedule);
+    window.addEventListener("popstate", schedule);
+    window.addEventListener("pageshow", schedule);
 
-    if (ready()) {
-      this.observeRows();
+    document.fonts?.ready
+      ?.then(schedule)
+      .catch(() => {});
+
+    this.observeRows();
+    this.scheduleUpdate();
+
+    /*
+     * Jellyfin 12 may destroy and recreate .homeSectionsContainer and its
+     * owning .page. A ResizeObserver attached to the old node then becomes
+     * useless. Keep a persistent DOM observer and rebind whenever Home is
+     * mounted again.
+     */
+    this.domObserver = new MutationObserver(() => {
+      const rows = document.querySelector(
+        ".homeSectionsContainer",
+      );
+
+      const page =
+        rows?.closest(".page") ||
+        document.querySelector(".page");
+
+      if (
+        rows &&
+        (
+          rows !== this.observedRows ||
+          page !== this.observedPage
+        )
+      ) {
+        this.observeRows(rows, page);
+        this.scheduleUpdate();
+      }
+    });
+
+    this.domObserver.observe(document.body, {
+      childList: true,
+      subtree: true,
+    });
+  },
+
+  observeRows(
+    rows = document.querySelector(
+      ".homeSectionsContainer",
+    ),
+    page =
+      rows?.closest(".page") ||
+      document.querySelector(".page"),
+  ) {
+    if (
+      typeof ResizeObserver === "undefined" ||
+      !rows
+    ) {
       return;
     }
 
-    const observer = new MutationObserver(() => {
-      if (!ready()) return;
-      this.update();
-      this.observeRows();
-      observer.disconnect();
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-    setTimeout(() => observer.disconnect(), 30000);
-  },
+    if (
+      this.rowsObserver &&
+      this.observedRows === rows &&
+      this.observedPage === page
+    ) {
+      return;
+    }
 
-  observeRows() {
-    if (this.rowsObserver || typeof ResizeObserver === "undefined") return;
+    if (this.rowsObserver) {
+      this.rowsObserver.disconnect();
+    }
 
-    const rows = document.querySelector(".homeSectionsContainer");
-    if (!rows) return;
+    this.rowsObserver = new ResizeObserver(
+      () => this.scheduleUpdate(),
+    );
 
-    this.rowsObserver = new ResizeObserver(() => this.update());
     this.rowsObserver.observe(rows);
 
-    const page = document.querySelector(".page");
-    if (page) this.rowsObserver.observe(page);
+    if (page) {
+      this.rowsObserver.observe(page);
+    }
+
+    this.observedRows = rows;
+    this.observedPage = page;
+
+    this.scheduleUpdate();
   },
 };
 
@@ -4546,118 +5074,12 @@ const isPlateLayout = () => CONFIG.layout === "plate";
 
 const isMarqueeLayout = () => CONFIG.layout === "marquee";
 
+// ALEXFLIX_LOCAL_JMP_PROGRESS_CHROME_V7
+// JMP/QtWebEngine can lay out the marquee progress bar correctly while
+// failing to paint it inside .slide-content. Render a dedicated chrome
+// copy directly under #slides-container only for Jellyfin Media Player.
 const isJellyfinMediaPlayer = () =>
-  /\bJellyfinMediaPlayer\b/.test(navigator.userAgent || "");
-
-let jmpTrailerResizeAttached = false;
-
-const applyJmpTrailerGeometry = (itemId, trailerContainer = null) => {
-  if (!isJellyfinMediaPlayer()) return;
-
-  const stage = document.getElementById("slides-container");
-  const slide = document.querySelector(`.slide[data-item-id="${itemId}"]`);
-  const container =
-    trailerContainer || slide?.querySelector(".video-container");
-
-  if (!stage || !slide || !container) return;
-
-  const iframe = container.querySelector("iframe");
-  const localVideo = container.querySelector(".local-trailer");
-  const host = container.querySelector(".video-player");
-
-  let playerElement = null;
-  let nestedMedia = null;
-
-  if (iframe) {
-    const wrapper =
-      iframe.parentElement?.classList?.contains("video-player")
-        ? iframe.parentElement
-        : null;
-
-    playerElement = wrapper || iframe;
-    if (wrapper) nestedMedia = iframe;
-  } else if (host) {
-    playerElement = host;
-    if (localVideo && localVideo !== host) nestedMedia = localVideo;
-  } else if (localVideo) {
-    playerElement = localVideo;
-  }
-
-  if (!playerElement) return;
-
-  const stageRect = stage.getBoundingClientRect();
-  const stageWidth = stageRect.width || stage.clientWidth;
-  const stageHeight = stageRect.height || stage.clientHeight;
-
-  if (stageWidth <= 0 || stageHeight <= 0) return;
-
-  const aspect = 16 / 9;
-  let playerWidth;
-  let playerHeight;
-
-  if (stageWidth / stageHeight > aspect) {
-    playerWidth = stageWidth;
-    playerHeight = stageWidth / aspect;
-  } else {
-    playerHeight = stageHeight;
-    playerWidth = stageHeight * aspect;
-  }
-
-  const important = (element, property, value) =>
-    element.style.setProperty(property, value, "important");
-
-  important(container, "position", "absolute");
-  important(container, "top", "0");
-  important(container, "right", "0");
-  important(container, "bottom", "0");
-  important(container, "left", "0");
-  important(container, "width", "100%");
-  important(container, "height", "100%");
-  important(container, "container-type", "normal");
-  important(container, "overflow", "hidden");
-
-  // Older QtWebEngine builds fail to composite the masked video layer.
-  important(container, "mask-image", "none");
-  important(container, "-webkit-mask-image", "none");
-  important(container, "z-index", "2");
-
-  important(playerElement, "position", "absolute");
-  important(playerElement, "left", "50%");
-  important(playerElement, "top", "50%");
-  important(playerElement, "width", `${playerWidth}px`);
-  important(playerElement, "height", `${playerHeight}px`);
-  important(playerElement, "min-width", "0");
-  important(playerElement, "min-height", "0");
-  important(playerElement, "transform", "translate(-50%, -50%)");
-  important(playerElement, "display", "block");
-  important(playerElement, "visibility", "visible");
-  important(playerElement, "opacity", "1");
-
-  if (nestedMedia) {
-    important(nestedMedia, "position", "absolute");
-    important(nestedMedia, "left", "0");
-    important(nestedMedia, "top", "0");
-    important(nestedMedia, "width", "100%");
-    important(nestedMedia, "height", "100%");
-    important(nestedMedia, "display", "block");
-    important(nestedMedia, "visibility", "visible");
-    important(nestedMedia, "opacity", "1");
-  }
-
-  if (!jmpTrailerResizeAttached) {
-    jmpTrailerResizeAttached = true;
-    window.addEventListener(
-      "resize",
-      () => {
-        if (!STATE.slideshow.isVideoPlaying) return;
-        const activeItemId =
-          STATE.slideshow.itemIds[STATE.slideshow.currentSlideIndex];
-        if (activeItemId) applyJmpTrailerGeometry(activeItemId);
-      },
-      { passive: true },
-    );
-  }
-};
+  /\bJellyfinMediaPlayer\b/i.test(navigator.userAgent || "");
 
 const slidesInit = async () => {
   if (STATE.slideshow.hasInitialized) {

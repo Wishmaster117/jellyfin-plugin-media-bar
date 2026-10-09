@@ -1,6 +1,6 @@
 ﻿using MediaBrowser.Model.Plugins;
 
-namespace Jellyfin.Plugin.MediaBar.Configuration
+namespace Jellyfin.Plugin.MediaBarAlexflix.Configuration
 {
     public enum MediaBarState
     {

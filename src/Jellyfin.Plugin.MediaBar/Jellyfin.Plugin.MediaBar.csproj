@@ -11,7 +11,9 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-        <Version>3.0.0.0</Version>
+        <AssemblyName>Jellyfin.Plugin.MediaBarAlexflix</AssemblyName>
+        <RootNamespace>Jellyfin.Plugin.MediaBarAlexflix</RootNamespace>
+        <Version>1.0.0.0</Version>
     </PropertyGroup>
 
     <ItemGroup>
@@ -40,7 +42,7 @@
     
     <Target Name="GenerateAssemblyMetadata_JellyfinVersion" BeforeTargets="BeforeCompile">
         <ItemGroup>
-            <AssemblyAttribute Include="Jellyfin.Plugin.MediaBar.Attributes.JellyfinVersionAttribute">
+            <AssemblyAttribute Include="Jellyfin.Plugin.MediaBarAlexflix.Attributes.JellyfinVersionAttribute">
                 <_Parameter1>$(JellyfinVersion)</_Parameter1>
             </AssemblyAttribute>
         </ItemGroup>
@@ -63,8 +65,8 @@
         <None Include="..\..\README.md" />
         <None Include="..\logo.png" CopyToOutputDirectory="Always" />
         <!-- Served by MediaBarController at /MediaBar/slideshowpure.{js,css} -->
-        <EmbeddedResource Include="..\..\slideshowpure.js" LogicalName="Jellyfin.Plugin.MediaBar.Inject.slideshowpure.js" />
-        <EmbeddedResource Include="..\..\slideshowpure.css" LogicalName="Jellyfin.Plugin.MediaBar.Inject.slideshowpure.css" />
+        <EmbeddedResource Include="..\..\slideshowpure.js" LogicalName="Jellyfin.Plugin.MediaBarAlexflix.Inject.slideshowpure.js" />
+        <EmbeddedResource Include="..\..\slideshowpure.css" LogicalName="Jellyfin.Plugin.MediaBarAlexflix.Inject.slideshowpure.css" />
     </ItemGroup>
 
     <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="Exists('C:\ProgramData\Jellyfin\Server_10_11\plugins\MediaBar')">

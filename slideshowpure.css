@@ -9,7 +9,8 @@
 
 :root {
 
-  --slideshow-height: 100vh;
+  /* ALEXFLIX_LOCAL_LAYOUT_V2 */
+  --slideshow-height: 59vh;
 
   --slideshow-content-top: 65vh;
 
@@ -1866,7 +1867,7 @@
 #slides-container.layout-plate .arrow,
 #slides-container.layout-marquee .arrow {
   top: auto;
-  bottom: 3.5vh;
+  bottom: calc(3.5vh + 8px);
   transform: none;
 }
 
@@ -2251,5 +2252,122 @@
 @media (prefers-reduced-motion: reduce) {
   #slides-container .ss-chrome {
     transition: none;
+  }
+}
+/* ==========================================================
+ * ALEXFLIX_LOCAL_CONTENT_FIT_V3
+ *
+ * Keep the locally validated 59vh MediaBar while decoupling:
+ *
+ *   - slideshow visual/content geometry
+ *   - Jellyfin Home rows position
+ *
+ * The upstream --slideshow-content-top variable drives both,
+ * which causes the content block to extend below a 59vh stage.
+ *
+ * Desktop only. Mobile upstream sizing remains untouched.
+ * ========================================================== */
+
+@media (min-width: 768px) {
+  :root,
+  :root.sspure-plate,
+  :root.sspure-marquee {
+    --slideshow-height: 59vh;
+
+    /* Internal MediaBar content anchor */
+    --slideshow-content-top: 56vh;
+
+    /* Jellyfin Home rows remain at the validated position */
+    --alexflix-home-rows-top: 65vh;
+  }
+
+  .homeSectionsContainer {
+    margin-top: calc(
+      var(--alexflix-home-rows-top) -
+        var(--slideshow-page-offset, 0px)
+    );
+  }
+
+  /*
+   * Generic/classic layout.
+   * Keep the complete information block inside the 59vh stage.
+   */
+  #slides-container .slide-content {
+    bottom: calc(
+      var(--slideshow-height) -
+        var(--slideshow-content-top) +
+        var(--slideshow-dots-reserve)
+    );
+
+    max-height: calc(
+      var(--slideshow-height) - 8vh
+    );
+
+    gap: clamp(0.35rem, 1vh, 0.7rem);
+  }
+
+  /*
+   * Logo was sized for the original full-height hero.
+   * Reduce its vertical budget so ratings/plot/buttons cannot
+   * be pushed below the MediaBar clipping boundary.
+   */
+  #slides-container .logo-container {
+    height: clamp(4.5rem, 16vh, 9rem);
+    margin-bottom: 0.15rem;
+  }
+
+  /*
+   * Plate and Marquee define their own logo variables with
+   * higher-specificity selectors, so size those explicitly.
+   */
+  #slides-container.layout-plate {
+    --plate-logo-height: clamp(4.5rem, 15vh, 9rem);
+  }
+
+  #slides-container.layout-marquee {
+    --mq-logo-height: clamp(4.5rem, 15vh, 9rem);
+  }
+
+  /*
+   * Their content selectors also override the generic geometry.
+   * Re-anchor them inside the compact stage.
+   */
+  #slides-container.layout-plate .slide-content,
+  #slides-container.layout-marquee .slide-content {
+    bottom: calc(
+      var(--slideshow-height) -
+        var(--slideshow-content-top) +
+        var(--slideshow-dots-reserve)
+    );
+
+    max-height: calc(
+      var(--slideshow-height) - 8vh
+    );
+
+    gap: clamp(0.35rem, 1vh, 0.7rem);
+  }
+
+  /*
+   * Two lines keep the synopsis useful without allowing it to
+   * consume the controls area on shorter browser viewports.
+   */
+  #slides-container .plot {
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+
+  /*
+   * A small control reduction gives the final row predictable
+   * clearance from the MediaBar bottom edge.
+   */
+  #slides-container .button-container {
+    transform: scale(0.92);
+    transform-origin: left center;
+    margin-top: 0;
+  }
+
+  #slides-container.layout-plate .button-container,
+  #slides-container.layout-marquee .button-container {
+    transform-origin: left center;
   }
 }
