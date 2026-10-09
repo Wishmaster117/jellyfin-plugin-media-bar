@@ -174,9 +174,9 @@
         </form>
     </div>
     <script type="text/javascript">
-        if (typeof MediaBarConfig == 'undefined') {
+        if (typeof AlexflixAdminConfig == 'undefined') {
             
-            const MediaBarConfig = {
+            const AlexflixAdminConfig = {
                 pluginId: "d61bd3d1-8bd3-4e5a-b81b-95184275dd4b",
                 configurationWrapper: document.querySelector("#configurationWrapper"),
 
@@ -237,7 +237,7 @@
                         }
                     };
 
-                    window.ApiClient.updatePluginConfiguration(MediaBarConfig.pluginId, config)
+                    window.ApiClient.updatePluginConfiguration(AlexflixAdminConfig.pluginId, config)
                         .then(Dashboard.processPluginConfigurationUpdateResult)
                         .catch(function (error) {
                             console.error(error);
@@ -248,7 +248,7 @@
                 },
                 loadConfig: function () {
                     Dashboard.showLoadingMsg();
-                    window.ApiClient.getPluginConfiguration(MediaBarConfig.pluginId)
+                    window.ApiClient.getPluginConfiguration(AlexflixAdminConfig.pluginId)
                         .then(function (config) {
                             document.querySelector("[data-id=enabledSelect]").value = config.Enabled;
                             document.querySelector("[data-id=chkUseAvatarsFile]").checked = config.UseAvatarsFile;
@@ -278,16 +278,16 @@
                         });
                 },
                 init: function () {
-                    MediaBarConfig.setupTabs();
+                    AlexflixAdminConfig.setupTabs();
                     
-                    MediaBarConfig.btnSave.addEventListener("click", MediaBarConfig.saveConfig);
-                    MediaBarConfig.loadConfig();
+                    AlexflixAdminConfig.btnSave.addEventListener("click", AlexflixAdminConfig.saveConfig);
+                    AlexflixAdminConfig.loadConfig();
                 }
             }
 
             // view.addEventListener("viewshow", function (e) {
             document.querySelector('#mediaBarConfigurationPage').addEventListener("pageshow", function () {
-                MediaBarConfig.init();
+                AlexflixAdminConfig.init();
             });
         }
     </script>
