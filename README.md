@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Wishmaster117/jellyfin-plugin-media-bar/releases/tag/v1.0.0.0"><img alt="Release" src="https://img.shields.io/badge/release-1.0.0.0-blue"></a>
+  <a href="https://github.com/Wishmaster117/jellyfin-plugin-media-bar/releases/tag/v1.0.1.0"><img alt="Release" src="https://img.shields.io/badge/release-1.0.1.0-blue"></a>
   <img alt="Validated Jellyfin version" src="https://img.shields.io/badge/Jellyfin-12.2.0-9461c9">
   <img alt=".NET runtime" src="https://img.shields.io/badge/.NET-10-512bd4">
   <a href="LICENSE.md"><img alt="DBAD 1.2 license" src="https://img.shields.io/badge/license-DBAD%201.2-informational"></a>
@@ -18,7 +18,7 @@
 
 **Media Bar ALEXFLIX** is an independently maintained adaptation of [Jellyfin Plugin Media Bar](https://github.com/IAmParadox27/jellyfin-plugin-media-bar), itself based on [MakD's Jellyfin Media Bar](https://github.com/MakD/Jellyfin-Media-Bar). It enhances Jellyfin's home screen with a featured-content showcase while preserving the original projects' credits and history.
 
-> **Current stable release:** **1.0.0.0 (RC6 / V66)** — validated with **Jellyfin 12.2.0**.
+> **Current stable release:** **1.0.1.0 (V67)** — validated with **Jellyfin 12.2.0**.
 
 ## Why choose ALEXFLIX?
 
@@ -33,6 +33,11 @@ The original Media Bar provides the foundation. **These are the ALEXFLIX-specifi
 | **Mobile portrait polish** | A more compact Marquee layout, adjusted controls and spacing, and slide rebuilding when the device switches orientation without refetching the whole selection. |
 | **Client preferences respected** | Explicitly choosing whether trailers are enabled on a client is no longer silently overridden by the server's general trailer setting. |
 | **More resilient UI behavior** | Additional fixes for translation loading, layout measurements, responsive repositioning, and slide/trailer transitions. |
+| **Random Backdrops** | Optional random image selection for movies or series with multiple backdrop images; with the setting off, the first image is preserved. |
+
+### Optional Random Backdrops
+
+Enable **Random Backdrops** in Media Bar settings to choose a backdrop randomly each time an eligible slide is created. Items with zero or one backdrop are unchanged. The choice stays consistent with the slide backdrop and its BlurHash/page backdrop where applicable. This feature was functionally validated on Jellyfin 12.2 using a movie with two available backdrops.
 
 ### Turn it off on just one device
 
@@ -60,10 +65,10 @@ The underlying featured-content experience—including **Plate and Marquee layou
    https://raw.githubusercontent.com/Wishmaster117/jellyfin-plugin-media-bar/main/manifest.json
    ```
 
-4. Open **Catalog**, find **Media Bar ALEXFLIX**, and install **version 1.0.0.0**.
+4. Open **Catalog**, find **Media Bar ALEXFLIX**, and install **version 1.0.1.0**.
 5. Restart Jellyfin and hard-refresh the web client if the bar does not appear immediately.
 
-**Official download:** [Media Bar ALEXFLIX v1.0.0.0](https://github.com/Wishmaster117/jellyfin-plugin-media-bar/releases/tag/v1.0.0.0)
+**Official download:** [Media Bar ALEXFLIX v1.0.1.0](https://github.com/Wishmaster117/jellyfin-plugin-media-bar/releases/tag/v1.0.1.0)
 
 The released package contains the plugin DLL, its dependency manifest and the logo. The slideshow JavaScript and CSS are embedded in the plugin assembly, keeping the delivered frontend tied to this version.
 
@@ -72,7 +77,7 @@ The released package contains the plugin DLL, its dependency manifest and the lo
 | Item | Stable release |
 | --- | --- |
 | Tested Jellyfin server | **12.2.0** |
-| Plugin version | **1.0.0.0** |
+| Plugin version | **1.0.1.0** |
 | Runtime | **.NET 10** |
 | ALEXFLIX plugin ID | `d61bd3d1-8bd3-4e5a-b81b-95184275dd4b` |
 | Distribution | [Independent ALEXFLIX catalog](manifest.json) and [GitHub releases](https://github.com/Wishmaster117/jellyfin-plugin-media-bar/releases) |
@@ -85,17 +90,18 @@ Other Jellyfin server versions have **not** been validated for this release. ALE
 - **Android TV / Fire TV:** Native TV clients may use an interface different from Jellyfin Web and may not render this Media Bar.
 - **Client differences:** Trailer autoplay and audio behavior depend on the client engine and its media policies. A feature working in a desktop browser is not a guarantee of identical behavior in every app.
 
-Experimental Android builds and later audio investigations are **not part of the stable V66 release**.
+Experimental Android builds and later audio investigations are **not part of this stable release**.
 
 ## Project and updates
 
 - **Stable source:** [`main`](https://github.com/Wishmaster117/jellyfin-plugin-media-bar/tree/main)
+- **Previous release (V66):** [v1.0.0.0](https://github.com/Wishmaster117/jellyfin-plugin-media-bar/releases/tag/v1.0.0.0)
 - **Validated V66 source:** [`release/alexflix-v66`](https://github.com/Wishmaster117/jellyfin-plugin-media-bar/tree/release/alexflix-v66)
 - **Original upstream baseline preserved:** [`archive/original-upstream`](https://github.com/Wishmaster117/jellyfin-plugin-media-bar/tree/archive/original-upstream)
 - **Releases:** [GitHub releases](https://github.com/Wishmaster117/jellyfin-plugin-media-bar/releases)
 - **Issues:** [Report an ALEXFLIX-specific issue](https://github.com/Wishmaster117/jellyfin-plugin-media-bar/issues)
 
-Future validated versions can be published through the ALEXFLIX release and catalog workflow. The currently installed stable release does not need to be replaced simply because this README changes.
+Future validated versions can be published through the ALEXFLIX release and catalog workflow. Existing installations can update through the independent ALEXFLIX plugin catalog.
 
 ## Credits and attribution
 

@@ -62,6 +62,8 @@ const CONFIG = {
 
   // true|false. Mirror the slide onto Jellyfin's page backdrop. Intrusive: it deletes Jellyfin's own backdrop layers while active.
   syncPageBackdrop: false,
+  // ALEXFLIX V67: choose from available backdrops; off by default.
+  randomBackdrops: false,
   // ms to wait for the YouTube iframe API before giving up and carrying on.
   youtubeApiLoadTimeoutMs: 8000,
 
@@ -178,6 +180,7 @@ const STRUCTURAL_CONFIG_KEYS = new Set([
   "plateAccentFallback",
   "plateSpecRows",
   "useBlurHashPlaceholder",
+  "randomBackdrops",
   "libraries",
   "trailerLibraries",
 ]);
@@ -2050,6 +2053,7 @@ const PageBackdrop = {
   observer: null,
   isWriting: false,
   currentItemId: null,
+  currentBackdropSrc: null,
 
   surface: null,
   prevInlineImage: null,
@@ -2067,12 +2071,14 @@ const PageBackdrop = {
       this.surface = surface;
       this.prevInlineImage = surface.style.backgroundImage || "";
       this.addedWithBackdrop = !surface.classList.contains("withBackdrop");
+      this.currentBackdropSrc = null;
     }
-    if (this.currentItemId === itemId) return;
+    if (this.currentItemId === itemId && this.currentBackdropSrc === src) return;
 
     surface.style.backgroundImage = `url("${src.replace(/"/g, "%22")}")`;
     surface.classList.add("withBackdrop");
     this.currentItemId = itemId;
+    this.currentBackdropSrc = src;
   },
 
   restoreSurface() {
@@ -2158,10 +2164,15 @@ const PageBackdrop = {
 
     if (!item) return;
 
+    const activeSlide = document.querySelector("#slides-container .slide.active");
+    const backdropIndex = activeSlide?.dataset.itemId === itemId
+      ? Number(activeSlide.dataset.backdropIndex || 0)
+      : 0;
+
     const src = SlideCreator.buildImageUrl(
       item,
       "Backdrop",
-      0,
+      backdropIndex,
       STATE.jellyfinData.serverAddress,
       60,
     );
@@ -2179,13 +2190,14 @@ const PageBackdrop = {
     try {
       const layer = this.getOrCreateLayer(container);
 
-      if (this.currentItemId !== itemId || layer.style.backgroundImage === "") {
+      if (this.currentItemId !== itemId || this.currentBackdropSrc !== src || layer.style.backgroundImage === "") {
         layer.style.backgroundImage = `url("${src.replace(/"/g, "%22")}")`;
         layer.classList.remove("backdropImageFadeIn");
 
         void layer.offsetWidth;
         layer.classList.add("backdropImageFadeIn");
         this.currentItemId = itemId;
+        this.currentBackdropSrc = src;
       }
 
       this.removeRotatorLayers(container);
@@ -2202,6 +2214,7 @@ const PageBackdrop = {
   clear() {
     this.stopObserver();
     this.currentItemId = null;
+    this.currentBackdropSrc = null;
 
     if (this.surface) {
       this.restoreSurface();
@@ -2320,10 +2333,17 @@ const SlideCreator = {
 
     const itemId = item.Id;
     const serverAddress = STATE.jellyfinData.serverAddress;
+    const backdropTags = Array.isArray(item.BackdropImageTags)
+      ? item.BackdropImageTags
+      : [];
+    const backdropIndex = CONFIG.randomBackdrops && backdropTags.length > 1
+      ? Math.floor(Math.random() * backdropTags.length)
+      : 0;
 
     const slide = SlideUtils.createElement("div", {
       className: "slide",
       "data-item-id": itemId,
+      "data-backdrop-index": String(backdropIndex),
     });
 
     let videoId = null;
@@ -2370,7 +2390,7 @@ const SlideCreator = {
 
     const backdrop = SlideUtils.createElement("img", {
       className: "backdrop high-quality",
-      src: this.buildImageUrl(item, "Backdrop", 0, serverAddress, 60),
+      src: this.buildImageUrl(item, "Backdrop", backdropIndex, serverAddress, 60),
       alt: "",
 
       "aria-hidden": "true",
@@ -2387,7 +2407,7 @@ const SlideCreator = {
 
     if (CONFIG.useBlurHashPlaceholder) {
       const backdropTag =
-        item.BackdropImageTags?.[0] || item.ImageTags?.Backdrop;
+        item.BackdropImageTags?.[backdropIndex] || item.ImageTags?.Backdrop;
       const placeholder = BlurHash.toDataURL(
         BlurHash.forItem(item, "Backdrop", backdropTag),
       );
@@ -4763,6 +4783,7 @@ const SettingsPanel = {
     { key: "slideAnimationEnabled", label: "Motion effects", type: "switch" },
 
     { key: "syncPageBackdrop", label: "Sync page backdrop", type: "switch" },
+    { key: "randomBackdrops", label: "Random Backdrops", type: "switch" },
     { key: "pauseOnHover", label: "Pause on hover", type: "switch" },
     { key: "enableTrailers", label: "Trailers", type: "switch" },
     {
