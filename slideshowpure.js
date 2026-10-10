@@ -2934,7 +2934,7 @@ const SlideCreator = {
       if (hasLocalTrailer) {
         const trailerUrl = await ApiUtils.fetchLocalTrailerUrl(itemId);
 
-        if (trailerUrl && document.getElementById(`trailer-${itemId}`)) {
+        if (trailerUrl && document.getElementById(`trailer-${itemId}`) === trailerContainer) {
           const video = SlideUtils.createElement("video", {
             className: "local-trailer",
             src: trailerUrl,
@@ -2979,7 +2979,7 @@ const SlideCreator = {
 
         loadYouTubeAPI().then((YT) => {
           if (!YT) return;
-          if (!document.getElementById(`trailer-${itemId}`)) return;
+          if (document.getElementById(`trailer-${itemId}`) !== trailerContainer) return;
 
           STATE.slideshow.players[itemId] = new YT.Player(
             `yt-player-${itemId}`,
@@ -3021,6 +3021,73 @@ const SlideCreator = {
   },
 };
 
+// ALEXFLIX_ANDROID_WEBVIEW_AUDIO_GUARD_V64
+// Official Android Jellyfin embeds a NativeInterface JavaScript bridge.
+// Browser Chrome on the same phone does not have this bridge.
+const isAndroidJellyfinWebView = () =>
+  /Android/i.test(navigator.userAgent || "") &&
+  typeof window.NativeInterface !== "undefined";
+
+// Detect a genuine loss of playback after unmuting; never block a browser.
+const AndroidWebViewTrailerAudio = {
+  attempt: null,
+  readSeconds(player) {
+    try {
+      const seconds = player.isLocal
+        ? player.element?.currentTime
+        : player.getCurrentTime?.();
+      return Number.isFinite(seconds) ? seconds : null;
+    } catch (_) {
+      return null;
+    }
+  },
+  cancel() {
+    this.attempt = null;
+  },
+  isCurrent(token) {
+    const id = STATE.slideshow.itemIds[STATE.slideshow.currentSlideIndex];
+    return this.attempt === token && id === token.itemId &&
+      STATE.slideshow.players[id] === token.player &&
+      VisibilityObserver.wasVisible && !STATE.slideshow.isPaused;
+  },
+  progressing(token) {
+    const seconds = this.readSeconds(token.player);
+    let state = null;
+    try { state = token.player.getPlayerState?.(); } catch (_) {}
+    return seconds !== null && token.initial !== null &&
+      seconds - token.initial >= 0.18 && (state === null || state === 1);
+  },
+  watch(itemId, player) {
+    this.cancel();
+    const token = { itemId, player, initial: this.readSeconds(player) };
+    this.attempt = token;
+    setTimeout(() => {
+      if (!this.isCurrent(token)) { if (this.attempt === token) this.cancel(); return; }
+      if (this.progressing(token)) { this.cancel(); return; }
+
+      // The WebView rejected the audible resume: restore the muted policy.
+      STATE.slideshow.isMuted = true;
+      const icon = document.querySelector(".volume-toggle i");
+      if (icon) icon.textContent = "volume_off";
+      try { player.mute(); player.playVideo?.(); } catch (error) {
+        console.warn("ALEXFLIX Android audio fallback:", error);
+      }
+      token.initial = this.readSeconds(player);
+      setTimeout(() => {
+        if (!this.isCurrent(token)) { if (this.attempt === token) this.cancel(); return; }
+        if (this.progressing(token)) { this.cancel(); return; }
+
+        // Even muted playback did not recover. Avoid a permanently frozen hero.
+        const trailer = document.getElementById(`trailer-${itemId}`);
+        SlideshowManager.setTrailerVisible(itemId, trailer, false);
+        STATE.slideshow.isVideoPlaying = false;
+        SlideshowManager.clearSlideTimers();
+        STATE.slideshow.slideInterval?.restart();
+        this.cancel();
+      }, 2200);
+    }, 2200);
+  },
+};
 const SlideshowManager = {
 
   createPaginationDots() {
@@ -3363,24 +3430,41 @@ const SlideshowManager = {
   },
 
   toggleMute() {
-    STATE.slideshow.isMuted = !STATE.slideshow.isMuted;
-
+    const currentId =
+      STATE.slideshow.itemIds[STATE.slideshow.currentSlideIndex];
+    const player = STATE.slideshow.players[currentId];
+    const androidApp = isAndroidJellyfinWebView();
     const btnIcon = document.querySelector(".volume-toggle i");
+
+    // Android WebView cannot reliably autoplay a future trailer with audio.
+    // Keep its autoplay muted until the user taps sound during playback.
+    if (androidApp && (!player || !STATE.slideshow.isVideoPlaying)) {
+      AndroidWebViewTrailerAudio.cancel();
+      STATE.slideshow.isMuted = true;
+      if (btnIcon) btnIcon.textContent = "volume_off";
+      return;
+    }
+
+    STATE.slideshow.isMuted = !STATE.slideshow.isMuted;
     if (btnIcon)
       btnIcon.textContent = STATE.slideshow.isMuted
         ? "volume_off"
         : "volume_up";
 
-    const currentId =
-      STATE.slideshow.itemIds[STATE.slideshow.currentSlideIndex];
-    const player = STATE.slideshow.players[currentId];
-
     if (player && typeof player.setVolume === "function") {
       if (STATE.slideshow.isMuted) {
+        if (androidApp) AndroidWebViewTrailerAudio.cancel();
         player.mute();
       } else {
         player.unMute();
-        player.setVolume(50);
+        player.setVolume(androidApp ? CONFIG.trailerVolume : 50);
+        if (androidApp) {
+          // Remain in the same user tap when asking the WebView to resume.
+          try { player.playVideo?.(); } catch (error) {
+            console.warn("ALEXFLIX Android audible resume:", error);
+          }
+          AndroidWebViewTrailerAudio.watch(currentId, player);
+        }
       }
     }
   },
@@ -3513,6 +3597,13 @@ const SlideshowManager = {
     }
 
     try {
+      // Android Jellyfin's WebView requires a muted autoplay, unlike Chrome.
+      if (isAndroidJellyfinWebView()) {
+        AndroidWebViewTrailerAudio.cancel();
+        STATE.slideshow.isMuted = true;
+        const icon = document.querySelector(".volume-toggle i");
+        if (icon) icon.textContent = "volume_off";
+      }
       if (STATE.slideshow.isMuted) {
         player.mute();
       } else {
@@ -4267,6 +4358,17 @@ const SlideshowManager = {
   },
 
   onTrailerPlaying(itemId, trailerContainer) {
+    // ALEXFLIX_ANDROID_ROTATION_STALE_PLAYER_GUARD_V60
+    if (document.getElementById(`trailer-${itemId}`) !== trailerContainer) return;
+    if (window.matchMedia("(max-width: 767px) and (orientation: portrait)").matches) {
+      try { STATE.slideshow.players[itemId]?.pauseVideo(); } catch (_) {}
+      this.setTrailerVisible(itemId, trailerContainer, false);
+      STATE.slideshow.isVideoPlaying = false;
+      if (!STATE.slideshow.isPaused && VisibilityObserver.wasVisible) {
+        STATE.slideshow.slideInterval?.restart();
+      }
+      return;
+    }
 
     const currentItemId =
       STATE.slideshow.itemIds[STATE.slideshow.currentSlideIndex];
@@ -4289,12 +4391,15 @@ const SlideshowManager = {
   },
 
   onTrailerEnded(itemId, trailerContainer) {
+    if (document.getElementById(`trailer-${itemId}`) !== trailerContainer) return;
     STATE.slideshow.isVideoPlaying = false;
     this.setTrailerVisible(itemId, trailerContainer, false);
     this.nextSlide();
   },
 
   onPlayerStateChange(event, itemId, trailerContainer) {
+    // ALEXFLIX_ANDROID_ROTATION_YT_STATE_GUARD_V61
+    if (document.getElementById(`trailer-${itemId}`) !== trailerContainer) return;
     if (!document.querySelector(`.slide[data-item-id="${itemId}"]`)) return;
 
     const YTRef = window.YT;
@@ -4313,6 +4418,7 @@ const SlideshowManager = {
   },
 
   onPlayerError(event, itemId, trailerContainer) {
+    if (document.getElementById(`trailer-${itemId}`) !== trailerContainer) return;
     console.warn(
       `Trailer for ${itemId} failed with YouTube error ${event?.data}; continuing without it.`,
     );
@@ -4659,6 +4765,16 @@ const SettingsPanel = {
     { key: "syncPageBackdrop", label: "Sync page backdrop", type: "switch" },
     { key: "pauseOnHover", label: "Pause on hover", type: "switch" },
     { key: "enableTrailers", label: "Trailers", type: "switch" },
+    {
+      key: "alexflixDeviceEnabled",
+      label: window.MediaBarAlexflixDevice
+        ? window.MediaBarAlexflixDevice.translate("enable")
+        : "Enable MediaBar on this device",
+      type: "switch",
+      read: () => window.MediaBarAlexflixDevice
+        ? window.MediaBarAlexflixDevice.isEnabled()
+        : true,
+    },
 
     {
       key: "allowTrailersOnTouch",
@@ -4876,6 +4992,13 @@ const SettingsPanel = {
   },
 
   commit(key, value) {
+    if (key === "alexflixDeviceEnabled") {
+      if (!value && window.MediaBarAlexflixDevice) {
+        window.MediaBarAlexflixDevice.setEnabled(false);
+      }
+      return;
+    }
+
     const field = this.FIELDS.find((entry) => entry.key === key);
     setConfig(field?.write ? field.write(value) : { [key]: value });
 
@@ -5081,6 +5204,67 @@ const isMarqueeLayout = () => CONFIG.layout === "marquee";
 const isJellyfinMediaPlayer = () =>
   /\bJellyfinMediaPlayer\b/i.test(navigator.userAgent || "");
 
+// ALEXFLIX_ANDROID_ORIENTATION_REFRESH_V60
+// Rebuild only cached slides when the actual mobile portrait media mode flips.
+// Never reload Jellyfin, refetch its library, or modify the validated RC5 CSS.
+const MobileOrientationSync = {
+  attached: false,
+  lastPortrait: null,
+  timeout: null,
+  retries: 0,
+  isPortrait() {
+    return window.matchMedia("(max-width: 767px) and (orientation: portrait)").matches;
+  },
+  init() {
+    if (this.attached) return;
+    this.attached = true;
+    this.lastPortrait = this.isPortrait();
+    const check = () => {
+      const portrait = this.isPortrait();
+      if (portrait === this.lastPortrait) return;
+      this.lastPortrait = portrait;
+      this.retries = 0;
+      clearTimeout(this.timeout);
+      this.timeout = setTimeout(() => this.refresh(), 350);
+    };
+    window.addEventListener("resize", check, { passive: true });
+    window.addEventListener("orientationchange", check, { passive: true });
+    const mq = window.matchMedia("(max-width: 767px) and (orientation: portrait)");
+    if (mq.addEventListener) mq.addEventListener("change", check);
+    else if (mq.addListener) mq.addListener(check);
+  },
+  refresh() {
+    if (!STATE.slideshow.hasInitialized || !STATE.slideshow.totalItems) return;
+    if (STATE.slideshow.isTransitioning || STATE.slideshow.isLoading) {
+      if (++this.retries <= 20) {
+        this.timeout = setTimeout(() => this.refresh(), 150);
+      }
+      return;
+    }
+    const container = document.getElementById("slides-container");
+    if (!container || !VisibilityObserver.wasVisible) return;
+    const index = STATE.slideshow.currentSlideIndex;
+    const currentId = STATE.slideshow.itemIds[index];
+    if (!currentId) return;
+
+    // Restore backdrop visibility *before* destroying the outgoing trailer.
+    const slide = container.querySelector(".slide.active");
+    const trailer = slide?.querySelector(".video-container") || null;
+    SlideshowManager.setTrailerVisible(currentId, trailer, false);
+    SlideshowManager.clearSlideTimers();
+    STATE.slideshow.slideInterval?.stop();
+    destroyAllPlayers();
+    container.querySelectorAll(".slide").forEach((node) => node.remove());
+    STATE.slideshow.createdSlides = {};
+    STATE.slideshow.slideVideoIds = {};
+    STATE.slideshow.isVideoPlaying = false;
+
+    // The current slide is rebuilt for the new portrait/landscape trailer policy.
+    // Slide order, current index, settings and downloaded item metadata survive.
+    SlideshowManager.updateCurrentSlide(index);
+    LayoutSync.scheduleUpdate();
+  },
+};
 const slidesInit = async () => {
   if (STATE.slideshow.hasInitialized) {
     console.log("⚠️ Slideshow already initialized, skipping");
@@ -5094,6 +5278,7 @@ const slidesInit = async () => {
     await SlideshowManager.loadSlideshowData();
 
     LayoutSync.init();
+    MobileOrientationSync.init();
 
     SlideshowManager.initTouchEvents();
     SlideshowManager.initHoverPause();

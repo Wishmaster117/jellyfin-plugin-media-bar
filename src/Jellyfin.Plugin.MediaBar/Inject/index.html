@@ -1,5 +1,4 @@
-<link rel="stylesheet" href="{{AssetBaseUrl}}/slideshowpure.css" />
-<script defer src="{{AssetBaseUrl}}/slideshowpure.js"></script>
+<script defer src="{{AssetBaseUrl}}/mediabar-loader.js"></script>
 <script defer>
     if (typeof AlexflixConfigHandler == 'undefined') {
         const AlexflixConfigHandler = {
@@ -86,6 +85,11 @@
         };
 
         let waitingForPluginInterval = setInterval(function () {
+            if (window.MediaBarAlexflixDevice &&
+                !window.MediaBarAlexflixDevice.isEnabled()) {
+                clearInterval(waitingForPluginInterval);
+                return;
+            }
             if (window.slideshowPure && window.slideshowPure.CONFIG && window.ApiClient) {
                 clearInterval(waitingForPluginInterval);
                 
