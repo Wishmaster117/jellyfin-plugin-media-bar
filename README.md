@@ -1,97 +1,113 @@
-# Media Bar ALEXFLIX
+<h1 align="center">Media Bar ALEXFLIX</h1>
 
-An independently maintained Jellyfin Media Bar plugin,
-based on the original Jellyfin Media Bar projects.
+<p align="center">
+  <img src="src/logo.png" alt="Media Bar ALEXFLIX logo" width="160">
+</p>
 
-## Overview
+<p align="center">
+  <strong>A more cinematic, responsive featured-content experience for Jellyfin.</strong><br>
+  Built on the original Media Bar, refined for Jellyfin 12.
+</p>
 
-Media Bar ALEXFLIX provides a featured-content bar for
-Jellyfin, with configurable media presentation and
-client-side controls.
+<p align="center">
+  <a href="https://github.com/Wishmaster117/jellyfin-plugin-media-bar/releases/tag/v1.0.0.0"><img alt="Release" src="https://img.shields.io/badge/release-1.0.0.0-blue"></a>
+  <img alt="Validated Jellyfin version" src="https://img.shields.io/badge/Jellyfin-12.2.0-9461c9">
+  <img alt=".NET runtime" src="https://img.shields.io/badge/.NET-10-512bd4">
+  <a href="LICENSE.md"><img alt="DBAD 1.2 license" src="https://img.shields.io/badge/license-DBAD%201.2-informational"></a>
+</p>
 
-This edition includes ALEXFLIX-specific improvements
-for Jellyfin 12, responsive layouts, trailer handling,
-and per-client enable/disable functionality.
+**Media Bar ALEXFLIX** is an independently maintained adaptation of [Jellyfin Plugin Media Bar](https://github.com/IAmParadox27/jellyfin-plugin-media-bar), itself based on [MakD's Jellyfin Media Bar](https://github.com/MakD/Jellyfin-Media-Bar). It enhances Jellyfin's home screen with a featured-content showcase while preserving the original projects' credits and history.
 
-## Compatibility
+> **Current stable release:** **1.0.0.0 (RC6 / V66)** — validated with **Jellyfin 12.2.0**.
 
-- Validated server version: Jellyfin 12.2.0
-- Plugin version: 1.0.0.0
-- Runtime: .NET 10
-- Windows browsers and supported mobile WebViews may
-  have different embedded-trailer playback behavior.
+## Why choose ALEXFLIX?
 
-Other Jellyfin versions have not been validated for
-this release.
+The original Media Bar provides the foundation. **These are the ALEXFLIX-specific additions and refinements**, rather than features being claimed as entirely new inventions.
 
-## Installation and updates
+| ALEXFLIX enhancement | What it improves |
+| --- | --- |
+| **On/off control for each device** | Hide Media Bar in one browser or device without disabling it for everyone. Re-enable it from a recovery button on the home screen. |
+| **Jellyfin 12 home-screen integration** | Better placement and lifecycle handling when Jellyfin rebuilds the home page or users navigate away and back. |
+| **More immersive web trailers** | In the Marquee layout, active trailers can fill the featured area instead of leaving an exposed side section, while retaining text contrast. |
+| **Jellyfin Media Player refinements** | Compatibility fixes for older QtWebEngine/DOM behavior, trailer sizing and positioning, and the Marquee progress indicator. |
+| **Mobile portrait polish** | A more compact Marquee layout, adjusted controls and spacing, and slide rebuilding when the device switches orientation without refetching the whole selection. |
+| **Client preferences respected** | Explicitly choosing whether trailers are enabled on a client is no longer silently overridden by the server's general trailer setting. |
+| **More resilient UI behavior** | Additional fixes for translation loading, layout measurements, responsive repositioning, and slide/trailer transitions. |
 
-The ALEXFLIX Jellyfin plugin catalog is being prepared.
+### Turn it off on just one device
 
-Until it is published and validated, do not install
-ALEXFLIX using the original Media Bar plugin repository
-or its release packages.
+The settings panel includes **“Enable MediaBar on this device”**. Disabling it saves a **local preference** on that browser/WebView; it does **not** change the plugin's global Jellyfin setting.
 
-Only use a release package explicitly published for
-Media Bar ALEXFLIX with this plugin ID:
+A recovery control appears on the home screen so Media Bar can be switched back on without clearing browser data. An optional **`?alexflix=restore`** URL recovery path is also available, with confirmation.
 
-`d61bd3d1-8bd3-4e5a-b81b-95184275dd4b`
+The device-control and recovery labels are available in **English, French, German, Spanish, Portuguese and Italian**.
 
-The original plugin has a different ID and is not an
-update source for Media Bar ALEXFLIX.
+### Trailer and layout improvements
 
-## Development
+ALEXFLIX refines the presentation of active video trailers on web clients and adds dedicated compatibility handling for **Jellyfin Media Player**. On small portrait screens, the Marquee card and controls have been adjusted for a less crowded interface. Desktop, TV and landscape layouts use separate rules where appropriate.
 
-The `main` branch is intended to contain the current
-ALEXFLIX source code.
+The underlying featured-content experience—including **Plate and Marquee layouts, media details, navigation and trailer support**—builds on the original projects. These inherited capabilities are not presented here as exclusively ALEXFLIX features.
 
-The original upstream baseline is preserved in
-`archive/original-upstream`.
+## Installation
 
-Validated releases will be published separately from
-experimental work.
+**Use the ALEXFLIX catalog, not the original Media Bar catalog, for ALEXFLIX releases and updates.**
+
+1. Install the [File Transformation plugin](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation) if it is not already installed; Media Bar uses its file-transformation integration to inject the interface.
+2. In Jellyfin, open **Dashboard → Plugins → Repositories**.
+3. Add this repository URL:
+
+   ```text
+   https://raw.githubusercontent.com/Wishmaster117/jellyfin-plugin-media-bar/main/manifest.json
+   ```
+
+4. Open **Catalog**, find **Media Bar ALEXFLIX**, and install **version 1.0.0.0**.
+5. Restart Jellyfin and hard-refresh the web client if the bar does not appear immediately.
+
+**Official download:** [Media Bar ALEXFLIX v1.0.0.0](https://github.com/Wishmaster117/jellyfin-plugin-media-bar/releases/tag/v1.0.0.0)
+
+The released package contains the plugin DLL, its dependency manifest and the logo. The slideshow JavaScript and CSS are embedded in the plugin assembly, keeping the delivered frontend tied to this version.
+
+### Compatibility and independence
+
+| Item | Stable release |
+| --- | --- |
+| Tested Jellyfin server | **12.2.0** |
+| Plugin version | **1.0.0.0** |
+| Runtime | **.NET 10** |
+| ALEXFLIX plugin ID | `d61bd3d1-8bd3-4e5a-b81b-95184275dd4b` |
+| Distribution | [Independent ALEXFLIX catalog](manifest.json) and [GitHub releases](https://github.com/Wishmaster117/jellyfin-plugin-media-bar/releases) |
+
+Other Jellyfin server versions have **not** been validated for this release. ALEXFLIX has its own plugin ID, separate from the original Media Bar (`08f615ea-2107-4f04-89cc-091035f54448`). The original plugin's packages and catalog are **not** ALEXFLIX update sources. Avoid enabling both frontends at once, since both can inject a Media Bar into Jellyfin's interface.
+
+## Known limitations
+
+- **Android Jellyfin app:** Android WebView can pause embedded YouTube trailer playback when sound is enabled. V66 includes protective playback handling, but this platform limitation is **not considered fully resolved**.
+- **Android TV / Fire TV:** Native TV clients may use an interface different from Jellyfin Web and may not render this Media Bar.
+- **Client differences:** Trailer autoplay and audio behavior depend on the client engine and its media policies. A feature working in a desktop browser is not a guarantee of identical behavior in every app.
+
+Experimental Android builds and later audio investigations are **not part of the stable V66 release**.
+
+## Project and updates
+
+- **Stable source:** [`main`](https://github.com/Wishmaster117/jellyfin-plugin-media-bar/tree/main)
+- **Validated V66 source:** [`release/alexflix-v66`](https://github.com/Wishmaster117/jellyfin-plugin-media-bar/tree/release/alexflix-v66)
+- **Original upstream baseline preserved:** [`archive/original-upstream`](https://github.com/Wishmaster117/jellyfin-plugin-media-bar/tree/archive/original-upstream)
+- **Releases:** [GitHub releases](https://github.com/Wishmaster117/jellyfin-plugin-media-bar/releases)
+- **Issues:** [Report an ALEXFLIX-specific issue](https://github.com/Wishmaster117/jellyfin-plugin-media-bar/issues)
+
+Future validated versions can be published through the ALEXFLIX release and catalog workflow. The currently installed stable release does not need to be replaced simply because this README changes.
 
 ## Credits and attribution
 
-Media Bar ALEXFLIX is a derivative project. It is not
-presented as an original work created from scratch.
+ALEXFLIX is a **derivative project**, not an original implementation from scratch. The underlying Media Bar and its existing features are the work of the original authors and contributors.
 
-Original project:
-- MakD — Jellyfin Media Bar
-  https://github.com/MakD/Jellyfin-Media-Bar
+- **MakD** — [Jellyfin Media Bar](https://github.com/MakD/Jellyfin-Media-Bar), original project.
+- **IAmParadox27** — [Jellyfin Plugin Media Bar](https://github.com/IAmParadox27/jellyfin-plugin-media-bar), plugin adaptation and development.
+- **BobHasNoSoul**, **SethBacon**, **TedHinklater** — contributions and influences acknowledged by the original projects.
+- **Wishmaster117** — ALEXFLIX-specific modifications, integration, release and maintenance.
 
-Plugin adaptation and subsequent development:
-- IAmParadox27 — Jellyfin Plugin Media Bar
-  https://github.com/IAmParadox27/jellyfin-plugin-media-bar
-
-Additional contributors and influences credited by
-the original projects include:
-- BobHasNoSoul
-- SethBacon
-- TedHinklater
-
-Thanks also to all contributors represented in the
-preserved Git history.
-
-ALEXFLIX-specific development and maintenance:
-- Wishmaster117
-  https://github.com/Wishmaster117/jellyfin-plugin-media-bar
+Thanks to all contributors represented in the preserved Git history.
 
 ## License
 
-The inherited DBAD 1.2 license and original copyright
-notice are preserved in [LICENSE.md](LICENSE.md).
-
-The original Git history remains available in this
-repository, and the upstream baseline is preserved
-in `archive/original-upstream`.
-
-## Reporting issues
-
-For issues specific to Media Bar ALEXFLIX, use the
-Issues section of this repository:
-
-https://github.com/Wishmaster117/jellyfin-plugin-media-bar/issues
-
-For issues in the original projects, consult their
-respective repositories.
+This project retains the inherited **[DBAD 1.2 license](LICENSE.md)** and the original copyright notice. The upstream Git history and baseline have also been preserved.
